@@ -6,7 +6,7 @@ class StartScreen extends Phaser.Scene {
     }
     create() {
         // Title
-        this.add.text(800, 300, 'VARAA VS NAAHUR - VERSION TWO', {
+        this.add.text(800, 300, 'AARAV VS RUHAAN', {
             fontSize: '84px',
             fill: '#fff'
         }).setOrigin(0.5);
@@ -27,7 +27,7 @@ class StartScreen extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         // Rogue class button
-        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 650\nSpeed: 70%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
+        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 400\nSpeed: 70%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -115,7 +115,7 @@ class BossGame extends Phaser.Scene {
         this.bullets = null;
         this.bossBalls = null;
         // Set initial health based on class
-        this.aaravHealth = this.playerClass === 'rogue' ? 650 : 300;
+        this.aaravHealth = this.playerClass === 'rogue' ? 400 : 300;
         this.maxHealth = this.aaravHealth; // Store max health for UI scaling
         this.ruhhanHealth = 1500; // Buffed boss health
         this.lastShot = 0;
@@ -225,7 +225,7 @@ class BossGame extends Phaser.Scene {
         this.aaravHealthBar.setOrigin(0, 0);
 
         // Add "AARAV" text
-        const aaravText = this.add.text(60, 20, 'VARAA', {
+        const aaravText = this.add.text(60, 20, 'AARAV', {
             fontSize: '24px',
             fill: '#fff',
             fontStyle: 'bold'
@@ -240,7 +240,7 @@ class BossGame extends Phaser.Scene {
         this.ruhhanHealthBar.setOrigin(0, 0);
 
         // Add "RUHAAN" text
-        const ruhhanText = this.add.text(860, 20, 'NAAHUR', {
+        const ruhhanText = this.add.text(860, 20, 'RUHAAN', {
             fontSize: '24px',
             fill: '#fff',
             fontStyle: 'bold'
@@ -332,9 +332,9 @@ class BossGame extends Phaser.Scene {
         // Rogue is slower with axe, faster without
         if (this.playerClass === 'rogue') {
             if (this.activeAxe) {
-                baseSpeed *= 1.2; // 20% faster without axe
-            } else {
                 baseSpeed *= 0.7; // 30% slower with axe
+            } else {
+                baseSpeed *= 1.2; // 20% faster without axe
             }
         }
         const moveSpeed = this.hyperChargeActive ? baseSpeed * 1.5 : baseSpeed;
@@ -430,10 +430,10 @@ class BossGame extends Phaser.Scene {
             const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
             axe.setScale(0.2);
 
-            // Visual feedback for speed boost when throwing
-            const speedBoostText = this.add.text(this.aarav.x, this.aarav.y - 50, 'Speed +20%', {
+            // Visual feedback for speed reduction when throwing
+            const speedBoostText = this.add.text(this.aarav.x, this.aarav.y - 50, 'Speed -30%', {
                 fontSize: '24px',
-                fill: '#00ff00'
+                fill: '#ff0000'
             }).setOrigin(0.5);
 
             this.tweens.add({
@@ -573,9 +573,9 @@ class BossGame extends Phaser.Scene {
                     });
 
                     // Text indicator for speed change
-                    const speedText = this.add.text(this.aarav.x, this.aarav.y - 50, 'Speed -30%', {
+                    const speedText = this.add.text(this.aarav.x, this.aarav.y - 50, 'Speed +20%', {
                         fontSize: '24px',
-                        fill: '#ff0000'
+                        fill: '#00ff00'
                     }).setOrigin(0.5);
 
                     this.tweens.add({
@@ -807,7 +807,10 @@ class BossGame extends Phaser.Scene {
         if (bullet.isSpecialBeam) {
             damage = this.playerClass === 'rogue' ? 75 : 50;
         } else if (bullet.isRogueBasicAttack) {
-            damage = 40; // Reduced initial hit damage for rogue's basic attack
+            // Add charging mechanics for basic axe attack
+            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 1.5);
+            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.5);
+            damage = 40;
         } else {
             damage = this.playerClass === 'rogue' ? 40 : 10;
         }
