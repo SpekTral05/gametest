@@ -158,28 +158,58 @@ class BossGame extends Phaser.Scene {
         this.physics.world.setBounds(0, 0, 1600, 1000);
 
         // Create static group for platforms
+        // Initialize platform groups
         this.platforms = this.physics.add.staticGroup();
+        this.movingPlatforms = this.physics.add.group();
+        this.destructiblePlatforms = this.physics.add.staticGroup();
+        this.bouncePads = this.physics.add.staticGroup();
 
-        // Create main platform/ground
-        this.platforms.create(800, 980, 'platform')
-            .setScale(8, 0.5) // Wider ground platform
-            .refreshBody();
-        // Create multiple platforms at different heights
-        this.platforms.create(300, 800, 'platform')
-            .setScale(1.2, 0.3)
-            .refreshBody();
-        this.platforms.create(800, 700, 'platform')
-            .setScale(1.5, 0.3)
-            .refreshBody();
-        this.platforms.create(1300, 800, 'platform')
-            .setScale(1.2, 0.3)
-            .refreshBody();
-        this.platforms.create(500, 550, 'platform')
-            .setScale(1.2, 0.3)
-            .refreshBody();
-        this.platforms.create(1100, 500, 'platform')
-            .setScale(1.2, 0.3)
-            .refreshBody();
+        // Create main ground with gaps
+        this.platforms.create(400, 980, 'platform').setScale(4, 0.5).refreshBody();
+        this.platforms.create(1200, 980, 'platform').setScale(4, 0.5).refreshBody();
+
+        // Create moving platforms
+        const movingPlat1 = this.add.rectangle(300, 700, 200, 20, 0x00ff00);
+        const movingPlat2 = this.add.rectangle(1300, 700, 200, 20, 0x00ff00);
+        this.movingPlatforms.addMultiple([movingPlat1, movingPlat2]);
+        this.movingPlatforms.children.iterate(platform => {
+            platform.body.allowGravity = false;
+            platform.body.immovable = true;
+        });
+
+        // Add platform movement
+        this.tweens.add({
+            targets: movingPlat1,
+            x: 700,
+            duration: 2000,
+            yoyo: true,
+            repeat: -1
+        });
+        this.tweens.add({
+            targets: movingPlat2,
+            x: 900,
+            duration: 2000,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // Create destructible platforms
+        const destructPlat1 = this.add.rectangle(600, 600, 200, 20, 0xff0000);
+        const destructPlat2 = this.add.rectangle(1000, 600, 200, 20, 0xff0000);
+        this.destructiblePlatforms.addMultiple([destructPlat1, destructPlat2]);
+        this.destructiblePlatforms.children.iterate(platform => {
+            platform.health = 3;
+        });
+
+        // Create bounce pads
+        const bounce1 = this.add.rectangle(200, 900, 100, 20, 0xffff00);
+        const bounce2 = this.add.rectangle(1400, 900, 100, 20, 0xffff00);
+        this.bouncePads.addMultiple([bounce1, bounce2]);
+
+        // Add static platforms for vertical movement
+        this.platforms.create(800, 400, 'platform').setScale(2, 0.3).refreshBody();
+        this.platforms.create(400, 500, 'platform').setScale(1, 0.3).refreshBody();
+        this.platforms.create(1200, 500, 'platform').setScale(1, 0.3).refreshBody();
 
         // Create Aarav (hero)
         //        this.aarav = this.add.rectangle(100, 450, "50, 80, 0x00ff00");
@@ -206,9 +236,21 @@ class BossGame extends Phaser.Scene {
         this.bossBalls = this.physics.add.group();
 
         // Add colliders
+        // Add colliders for all platform types
         this.physics.add.collider(this.aarav, this.platforms);
+        this.physics.add.collider(this.aarav, this.movingPlatforms);
+        this.physics.add.collider(this.aarav, this.destructiblePlatforms);
         this.physics.add.collider(this.ruhaan, this.platforms);
+        this.physics.add.collider(this.ruhaan, this.movingPlatforms);
+        this.physics.add.collider(this.ruhaan, this.destructiblePlatforms);
+
+        // Add bounce pad interaction
+        this.physics.add.overlap(this.aarav, this.bouncePads, this.handleBounce, null, this);
+        this.physics.add.overlap(this.ruhaan, this.bouncePads, this.handleBounce, null, this);
+
+        // Add bullet collisions
         this.physics.add.collider(this.bullets, this.platforms, this.destroyBullet, null, this);
+        this.physics.add.collider(this.bullets, this.destructiblePlatforms, this.handleDestructibleHit, null, this);
         this.physics.add.collider(this.bossBalls, this.platforms, this.destroyBullet, null, this);
 
         // Add overlap detection for damage
@@ -449,13 +491,16 @@ class BossGame extends Phaser.Scene {
             axe.body.setCollideWorldBounds(true);
 
             // Add collision with world bounds
-            axe.body.onWorldBounds = true;
-            this.physics.world.on('worldbounds', (body) => {
+            // Remove global event listener and use local scope
+            const worldBoundsHandler = (body) => {
                 if (body.gameObject === axe) {
                     body.gameObject.setVelocity(0, 0);
                     body.gameObject.body.setAllowGravity(false);
+                    this.physics.world.off('worldbounds', worldBoundsHandler); // Clean up listener
                 }
-            });
+            };
+            axe.body.onWorldBounds = true;
+            this.physics.world.on('worldbounds', worldBoundsHandler);
 
             // Set the axe's velocity based on direction
             const throwSpeed = 600;
@@ -578,29 +623,30 @@ class BossGame extends Phaser.Scene {
     }
 
     updateBoss() {
-        // Spawn minions at intervals
-        if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval) {
-            this.spawnMinion();
-            this.lastMinionSpawn = this.time.now;
-        }
-        // Update minion behavior
-        this.minions.getChildren().forEach(minion => {
-            // Move towards player
-            const dx = this.aarav.x - minion.x;
-            const dy = this.aarav.y - minion.y;
-            const angle = Math.atan2(dy, dx);
-            const speed = 150;
-
-            minion.setVelocityX(Math.cos(angle) * speed);
-
-            // Jump if near platform edge or towards player if below
-            if (minion.body.touching.down) {
-                if (!this.physics.overlapRect(minion.x + Math.sign(dx) * 30, minion.y + 50, 10, 10).length ||
-                    this.aarav.y < minion.y - 50) {
-                    minion.setVelocityY(-400);
-                }
+        if (!this.isPerformingSpecial && !this.ruhaan.isStunned) {
+            // Spawn minions at intervals, but limit the total number
+            if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval &&
+                this.minions.getChildren().length < 3) { // Maximum 3 minions at a time
+                this.spawnMinion();
+                this.lastMinionSpawn = this.time.now;
             }
-        });
+            // Update minion behavior with performance optimizations
+            this.minions.getChildren().forEach(minion => {
+                if (minion && minion.active && minion.body) {
+                    const dx = this.aarav.x - minion.x;
+                    const dy = this.aarav.y - minion.y;
+                    const angle = Math.atan2(dy, dx);
+                    const speed = 150;
+                    minion.setVelocityX(Math.cos(angle) * speed);
+                    // Optimized jump logic
+                    if (minion.body.touching.down) {
+                        if (this.aarav.y < minion.y - 50) {
+                            minion.setVelocityY(-400);
+                        }
+                    }
+                }
+            });
+        }
         // If boss is stunned, don't perform any actions
         if (this.ruhaan.isStunned) {
             return;
@@ -924,17 +970,75 @@ class BossGame extends Phaser.Scene {
     destroyBullet(bullet) {
         bullet.destroy();
     }
+    handleBounce(entity) {
+        entity.body.setVelocityY(-800);
+
+        // Add bounce effect
+        for (let i = 0; i < 5; i++) {
+            const particle = this.add.circle(
+                entity.x + Phaser.Math.Between(-20, 20),
+                entity.y + 40,
+                5,
+                0xffff00
+            );
+            this.tweens.add({
+                targets: particle,
+                y: particle.y - Phaser.Math.Between(50, 100),
+                alpha: 0,
+                duration: 500,
+                onComplete: () => particle.destroy()
+            });
+        }
+    }
+    handleDestructibleHit(bullet, platform) {
+        bullet.destroy();
+        platform.health--;
+
+        // Visual feedback
+        platform.setAlpha(platform.health / 3);
+
+        if (platform.health <= 0) {
+            // Create destruction particles
+            for (let i = 0; i < 8; i++) {
+                const particle = this.add.circle(
+                    platform.x + Phaser.Math.Between(-50, 50),
+                    platform.y + Phaser.Math.Between(-10, 10),
+                    5,
+                    0xff0000
+                );
+                this.tweens.add({
+                    targets: particle,
+                    x: particle.x + Phaser.Math.Between(-100, 100),
+                    y: particle.y + Phaser.Math.Between(-100, 100),
+                    alpha: 0,
+                    duration: 1000,
+                    onComplete: () => particle.destroy()
+                });
+            }
+
+            // Destroy platform
+            platform.destroy();
+
+            // Regenerate platform after delay
+            this.time.delayedCall(5000, () => {
+                const newPlatform = this.add.rectangle(platform.x, platform.y, 200, 20, 0xff0000);
+                this.destructiblePlatforms.add(newPlatform);
+                newPlatform.health = 3;
+            });
+        }
+    }
     spawnMinion() {
         // Create minion at random location
         const spawnSide = Math.random() > 0.5 ? 'left' : 'right';
         const x = spawnSide === 'left' ? 100 : 1500;
         const minion = this.add.circle(x, 200, 15, 0xff0000);
+        this.physics.add.existing(minion); // Add physics body explicitly
         this.minions.add(minion);
-
         // Set up minion properties
         minion.health = 30;
         minion.body.setBounce(0.2);
         minion.body.setCollideWorldBounds(true);
+        minion.body.setGravityY(1000); // Match world gravity
     }
     hitByMinion(player, minion) {
         if (!this.hitCooldown) {
@@ -1016,17 +1120,29 @@ class BossGame extends Phaser.Scene {
             axe.setScale(0.4);
             axe.body.setAllowGravity(false);
             axe.isSpecialBeam = true;
+            axe.hasHitOnce = false;
+
             // Add collision with boss for super axe
             this.physics.add.overlap(axe, this.ruhaan, (axe, boss) => {
                 if (axe.active) {
-                    const damage = this.hyperChargeActive ? 150 : 100;
+                    let damage;
+                    if (!axe.hasHitOnce) {
+                        damage = this.hyperChargeActive ? 150 : 100;
+                        axe.hasHitOnce = true;
+                    } else {
+                        // 50% damage on second hit
+                        damage = this.hyperChargeActive ? 75 : 50;
+                    }
+
                     this.ruhhanHealth -= damage;
+
                     // Visual feedback for damage
                     const damageText = this.add.text(boss.x, boss.y - 50, `-${damage}!`, {
                         fontSize: '32px',
-                        fill: '#ff0000',
+                        fill: axe.hasHitOnce ? '#ff9999' : '#ff0000',
                         fontStyle: 'bold'
                     }).setOrigin(0.5);
+
                     this.tweens.add({
                         targets: damageText,
                         y: damageText.y - 80,
@@ -1034,15 +1150,13 @@ class BossGame extends Phaser.Scene {
                         duration: 800,
                         onComplete: () => damageText.destroy()
                     });
-                    // Destroy axe after hit
-                    axe.destroy();
-                    this.isPerformingSpecial = false;
                 }
             }, null, this);
             // Enhanced throw speed and direction
             const throwSpeed = 1000;
             const direction = this.facingRight ? 1 : -1;
             axe.body.setVelocityX(throwSpeed * direction);
+
             // Spinning animation
             this.tweens.add({
                 targets: axe,
@@ -1050,40 +1164,41 @@ class BossGame extends Phaser.Scene {
                 duration: 1000,
                 repeat: -1
             });
-            // Return axe after delay
-            this.time.delayedCall(1000, () => {
-                if (axe.active) {
-                    const returnInterval = this.time.addEvent({
-                        delay: 16,
-                        callback: () => {
-                            if (axe.active) {
-                                const dx = this.aarav.x - axe.x;
-                                const dy = this.aarav.y - axe.y;
-                                const angle = Math.atan2(dy, dx);
-                                const returnSpeed = 1200;
 
-                                axe.body.setVelocity(
-                                    Math.cos(angle) * returnSpeed,
-                                    Math.sin(angle) * returnSpeed
-                                );
-                                if (Phaser.Math.Distance.Between(axe.x, axe.y, this.aarav.x, this.aarav.y) < 50) {
-                                    returnInterval.destroy();
-                                    axe.destroy();
-                                    this.isPerformingSpecial = false;
-                                }
-                            }
-                        },
-                        loop: true
-                    });
-                    // Safety cleanup
-                    this.time.delayedCall(2000, () => {
+            // Return axe after delay
+            this.time.delayedCall(800, () => { // Reduced delay to 800ms for faster return
+                const returnInterval = this.time.addEvent({
+                    delay: 16,
+                    callback: () => {
                         if (axe.active) {
-                            returnInterval.destroy();
-                            axe.destroy();
-                            this.isPerformingSpecial = false;
+                            const dx = this.aarav.x - axe.x;
+                            const dy = this.aarav.y - axe.y;
+                            const angle = Math.atan2(dy, dx);
+                            const returnSpeed = 1500; // Increased return speed
+
+                            axe.body.setVelocity(
+                                Math.cos(angle) * returnSpeed,
+                                Math.sin(angle) * returnSpeed
+                            );
+
+                            if (Phaser.Math.Distance.Between(axe.x, axe.y, this.aarav.x, this.aarav.y) < 50) {
+                                returnInterval.destroy();
+                                axe.destroy();
+                                this.isPerformingSpecial = false;
+                            }
                         }
-                    });
-                }
+                    },
+                    loop: true
+                });
+
+                // Safety cleanup after 1.5 seconds of return attempt
+                this.time.delayedCall(1500, () => {
+                    if (axe.active) {
+                        returnInterval.destroy();
+                        axe.destroy();
+                        this.isPerformingSpecial = false;
+                    }
+                });
             });
         } else {
             // Initialize beam properties for saiyan
