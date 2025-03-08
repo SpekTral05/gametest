@@ -897,9 +897,62 @@ class BossGame extends Phaser.Scene {
     }
     specialAttack() {
         if (this.playerClass === 'rogue') {
-            this.throwAxe();
+            // Initialize properties for rogue's super axe
+            this.isPerformingSpecial = true;
+
+            // Create and throw enhanced axe
+            const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
+            axe.setScale(0.4);
+            axe.body.setAllowGravity(false);
+            axe.isSpecialBeam = true;
+            // Enhanced throw speed and direction
+            const throwSpeed = 1000;
+            const direction = this.facingRight ? 1 : -1;
+            axe.body.setVelocityX(throwSpeed * direction);
+            // Spinning animation
+            this.tweens.add({
+                targets: axe,
+                rotation: direction * 12.56638,
+                duration: 1000,
+                repeat: -1
+            });
+            // Return axe after delay
+            this.time.delayedCall(1000, () => {
+                if (axe.active) {
+                    const returnInterval = this.time.addEvent({
+                        delay: 16,
+                        callback: () => {
+                            if (axe.active) {
+                                const dx = this.aarav.x - axe.x;
+                                const dy = this.aarav.y - axe.y;
+                                const angle = Math.atan2(dy, dx);
+                                const returnSpeed = 1200;
+
+                                axe.body.setVelocity(
+                                    Math.cos(angle) * returnSpeed,
+                                    Math.sin(angle) * returnSpeed
+                                );
+                                if (Phaser.Math.Distance.Between(axe.x, axe.y, this.aarav.x, this.aarav.y) < 50) {
+                                    returnInterval.destroy();
+                                    axe.destroy();
+                                    this.isPerformingSpecial = false;
+                                }
+                            }
+                        },
+                        loop: true
+                    });
+                    // Safety cleanup
+                    this.time.delayedCall(2000, () => {
+                        if (axe.active) {
+                            returnInterval.destroy();
+                            axe.destroy();
+                            this.isPerformingSpecial = false;
+                        }
+                    });
+                }
+            });
         } else {
-            // Initialize beam properties
+            // Initialize beam properties for saiyan
             const beamWidth = 40;
             const beamLength = 800;
             const chargeTime = 500;
