@@ -27,7 +27,7 @@ class StartScreen extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         // Rogue class button
-        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 400\nSpeed: 70%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
+        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 400\nSpeed: 50%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -329,13 +329,9 @@ class BossGame extends Phaser.Scene {
 
         // Player movement and jump
         let baseSpeed = this.aarav.body.touching.down ? 300 : 250;
-        // Rogue is slower with axe, faster without
+        // Rogue has constant lower speed
         if (this.playerClass === 'rogue') {
-            if (this.activeAxe) {
-                baseSpeed *= 0.7; // 30% slower with axe
-            } else {
-                baseSpeed *= 1.2; // 20% faster without axe
-            }
+            baseSpeed *= 0.5; // 50% base speed
         }
         const moveSpeed = this.hyperChargeActive ? baseSpeed * 1.5 : baseSpeed;
 
@@ -430,19 +426,7 @@ class BossGame extends Phaser.Scene {
             const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
             axe.setScale(0.2);
 
-            // Visual feedback for speed reduction when throwing
-            const speedBoostText = this.add.text(this.aarav.x, this.aarav.y - 50, 'Speed -30%', {
-                fontSize: '24px',
-                fill: '#ff0000'
-            }).setOrigin(0.5);
-
-            this.tweens.add({
-                targets: speedBoostText,
-                y: speedBoostText.y - 30,
-                alpha: 0,
-                duration: 500,
-                onComplete: () => speedBoostText.destroy()
-            });
+            // Removed speed boost/reduction text as speed is now constant
 
             // Speed boost effect
             const boostEffect = this.add.circle(this.aarav.x, this.aarav.y, 20, 0x00ff00, 0.5);
@@ -498,7 +482,7 @@ class BossGame extends Phaser.Scene {
             this.physics.add.overlap(axe, this.ruhaan, (axe, boss) => {
                 if (axe.active && !axe.hasDealtInitialDamage) {
                     // Initial hit damage
-                    const damage = 70;
+                    const damage = 40;
                     this.ruhhanHealth -= damage;
                     axe.hasDealtInitialDamage = true;
 
@@ -572,19 +556,7 @@ class BossGame extends Phaser.Scene {
                         onComplete: () => speedEffect.destroy()
                     });
 
-                    // Text indicator for speed change
-                    const speedText = this.add.text(this.aarav.x, this.aarav.y - 50, 'Speed +20%', {
-                        fontSize: '24px',
-                        fill: '#00ff00'
-                    }).setOrigin(0.5);
-
-                    this.tweens.add({
-                        targets: speedText,
-                        y: speedText.y - 30,
-                        alpha: 0,
-                        duration: 500,
-                        onComplete: () => speedText.destroy()
-                    });
+                    // Removed speed change text as speed is now constant
 
                     axe.destroy();
                     this.activeAxe = null;
@@ -807,9 +779,9 @@ class BossGame extends Phaser.Scene {
         if (bullet.isSpecialBeam) {
             damage = this.playerClass === 'rogue' ? 75 : 50;
         } else if (bullet.isRogueBasicAttack) {
-            // Add charging mechanics for basic axe attack
-            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 1.5);
-            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.5);
+            // Enhanced charging mechanics for axe hits
+            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 2);
+            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 1);
             damage = 40;
         } else {
             damage = this.playerClass === 'rogue' ? 40 : 10;
