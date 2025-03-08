@@ -87,6 +87,9 @@ class BossGame extends Phaser.Scene {
         // Initialize game variables
         this.activeAxe = null; // Add this line to track the thrown axe
         this.aarav = null;
+        this.minions = this.physics.add.group(); // Group for smaller enemies
+        this.lastMinionSpawn = 0; // Track last minion spawn time
+        this.minionSpawnInterval = 5000; // Spawn every 5 seconds
         this.jumpCount = 0;
         this.facingRight = true;
         this.isPoisoned = false;
@@ -211,6 +214,9 @@ class BossGame extends Phaser.Scene {
         // Add overlap detection for damage
         this.physics.add.overlap(this.ruhaan, this.bullets, this.hitBoss, null, this);
         this.physics.add.overlap(this.aarav, this.bossBalls, this.hitPlayer, null, this);
+        this.physics.add.overlap(this.aarav, this.minions, this.hitByMinion, null, this);
+        this.physics.add.overlap(this.bullets, this.minions, this.hitMinion, null, this);
+        this.physics.add.collider(this.minions, this.platforms);
 
         // Create UI container for better organization
         this.uiContainer = this.add.container(0, 0);
@@ -572,6 +578,29 @@ class BossGame extends Phaser.Scene {
     }
 
     updateBoss() {
+        // Spawn minions at intervals
+        if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval) {
+            this.spawnMinion();
+            this.lastMinionSpawn = this.time.now;
+        }
+        // Update minion behavior
+        this.minions.getChildren().forEach(minion => {
+            // Move towards player
+            const dx = this.aarav.x - minion.x;
+            const dy = this.aarav.y - minion.y;
+            const angle = Math.atan2(dy, dx);
+            const speed = 150;
+
+            minion.setVelocityX(Math.cos(angle) * speed);
+
+            // Jump if near platform edge or towards player if below
+            if (minion.body.touching.down) {
+                if (!this.physics.overlapRect(minion.x + Math.sign(dx) * 30, minion.y + 50, 10, 10).length ||
+                    this.aarav.y < minion.y - 50) {
+                    minion.setVelocityY(-400);
+                }
+            }
+        });
         // If boss is stunned, don't perform any actions
         if (this.ruhaan.isStunned) {
             return;
@@ -894,6 +923,88 @@ class BossGame extends Phaser.Scene {
 
     destroyBullet(bullet) {
         bullet.destroy();
+    }
+    spawnMinion() {
+        // Create minion at random location
+        const spawnSide = Math.random() > 0.5 ? 'left' : 'right';
+        const x = spawnSide === 'left' ? 100 : 1500;
+        const minion = this.add.circle(x, 200, 15, 0xff0000);
+        this.minions.add(minion);
+
+        // Set up minion properties
+        minion.health = 30;
+        minion.body.setBounce(0.2);
+        minion.body.setCollideWorldBounds(true);
+    }
+    hitByMinion(player, minion) {
+        if (!this.hitCooldown) {
+            const damage = 10;
+            this.aaravHealth -= damage;
+
+            // Visual feedback
+            const damageText = this.add.text(player.x, player.y - 50, `-${damage}`, {
+                fontSize: '24px',
+                fill: '#ff0000'
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+                targets: damageText,
+                y: damageText.y - 50,
+                alpha: 0,
+                duration: 500,
+                onComplete: () => damageText.destroy()
+            });
+
+            // Add hit cooldown
+            this.hitCooldown = true;
+            this.time.delayedCall(500, () => {
+                this.hitCooldown = false;
+            });
+        }
+    }
+    hitMinion(bullet, minion) {
+        bullet.destroy();
+
+        const damage = bullet.isSpecialBeam ? 30 : 15;
+        minion.health -= damage;
+
+        // Visual feedback
+        const damageText = this.add.text(minion.x, minion.y - 20, `-${damage}`, {
+            fontSize: '20px',
+            fill: '#ff0000'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: damageText,
+            y: damageText.y - 30,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => damageText.destroy()
+        });
+
+        if (minion.health <= 0) {
+            // Death effect
+            for (let i = 0; i < 8; i++) {
+                const particle = this.add.circle(minion.x, minion.y, 4, 0xff0000);
+                const angle = (i / 8) * Math.PI * 2;
+                const speed = 100;
+
+                this.tweens.add({
+                    targets: particle,
+                    x: particle.x + Math.cos(angle) * speed,
+                    y: particle.y + Math.sin(angle) * speed,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => particle.destroy()
+                });
+            }
+
+            minion.destroy();
+
+            // Increase charge slightly for killing minions
+            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 0.5);
+            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.25);
+        }
     }
     specialAttack() {
         if (this.playerClass === 'rogue') {
