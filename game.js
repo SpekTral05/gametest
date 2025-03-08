@@ -131,13 +131,18 @@ class BossGame extends Phaser.Scene {
         this.load.audio('bgMusic', 'https://play.rosebud.ai/assets/Bossfight - Milky Ways.mp3?5Zus');
         // Load axe sprite
         this.load.image('axe', 'https://play.rosebud.ai/assets/GreatAxe.png?K7Gg');
-        // Load burrito sprite
-        this.load.image('burrito', 'burrit.jpg');
-        // Create a temporary platform texture
-        this.load.image('arrav', 'arv.gif')
-        //arrave sprite
-        this.load.image('ruhaan', 'rufat.gif')
-        //ruhann sprite
+        // Load background image
+        this.load.image('background', 'https://play.rosebud.ai/assets/z2hyet3gihd71.jpg?z1yj');
+        // Load player animations
+        this.load.spritesheet('aarav_idle', 'https://play.rosebud.ai/assets/New Piskel.gif?jB4G', {
+            frameWidth: 128,
+            frameHeight: 128
+        });
+        this.load.spritesheet('aarav_run', 'https://play.rosebud.ai/assets/aarav run.png?fu9Y', {
+            frameWidth: 128,
+            frameHeight: 128
+        });
+        // Create platform texture
         let graphics = this.add.graphics();
         graphics.fillStyle(0x666666);
         graphics.fillRect(0, 0, 200, 32);
@@ -151,10 +156,9 @@ class BossGame extends Phaser.Scene {
             volume: 0.4
         });
         this.bgMusic.play();
-        // Set background color and camera bounds
-        this.cameras.main.setBackgroundColor('#4488AA');
+        // Set background
+        this.add.image(800, 500, 'background').setScale(2.8, 2.2);
         this.cameras.main.setBounds(0, 0, 1600, 1000);
-        this.add.rectangle(800, 500, 1600, 1000, 0x4488AA); // Add visible background
         this.physics.world.setBounds(0, 0, 1600, 1000);
 
         // Create static group for platforms
@@ -211,19 +215,48 @@ class BossGame extends Phaser.Scene {
         this.platforms.create(400, 500, 'platform').setScale(1, 0.3).refreshBody();
         this.platforms.create(1200, 500, 'platform').setScale(1, 0.3).refreshBody();
 
-        // Create Aarav (hero)
-        //        this.aarav = this.add.rectangle(100, 450, "50, 80, 0x00ff00");
-        this.aarav = this.add.sprite(100, 450, 'arrav');
+        // Create Aarav (hero) with animations
+        this.aarav = this.add.sprite(100, 450, 'aarav_idle');
         this.physics.add.existing(this.aarav);
         this.aarav.body.setBounce(0);
         this.aarav.body.setCollideWorldBounds(true);
         this.aarav.body.setGravityY(600);
         this.aarav.body.setSize(50, 80);
-        this.aarav.setScale(0.5);
+        this.aarav.setScale(0.8);
+
+        // Create animations
+        this.anims.create({
+            key: 'idle',
+            frames: this.anims.generateFrameNumbers('aarav_idle', {
+                start: 0,
+                end: 3
+            }),
+            frameRate: 8,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'run_right',
+            frames: this.anims.generateFrameNumbers('aarav_run', {
+                start: 0,
+                end: 2
+            }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'run_left',
+            frames: this.anims.generateFrameNumbers('aarav_run', {
+                start: 3,
+                end: 5
+            }),
+            frameRate: 10,
+            repeat: -1
+        });
+        // Start with idle animation
+        this.aarav.play('idle');
 
         // Create Ruhaan (boss)
-        //        this.ruhaan = this.add.rectangle(700, 450, 80, 120, 0xff0000);
-        this.ruhaan = this.add.sprite(700, 450, 'ruhaan');
+        this.ruhaan = this.add.rectangle(700, 450, 80, 120, 0xff0000);
         this.physics.add.existing(this.ruhaan);
         this.ruhaan.body.setBounce(0.2);
         this.ruhaan.body.setCollideWorldBounds(true);
@@ -386,13 +419,14 @@ class BossGame extends Phaser.Scene {
         if (this.cursors.left.isDown) {
             this.aarav.body.setVelocityX(-moveSpeed);
             this.facingRight = false;
-            this.aarav.setScale(-1, 1); // Flip sprite horizontally
+            this.aarav.play('run_left', true);
         } else if (this.cursors.right.isDown) {
             this.aarav.body.setVelocityX(moveSpeed);
             this.facingRight = true;
-            this.aarav.setScale(1, 1); // Reset sprite orientation
+            this.aarav.play('run_right', true);
         } else {
             this.aarav.body.setVelocityX(0);
+            this.aarav.play('idle', true);
         }
         // Player jump with better ground detection
         // Player jump with better ground detection
