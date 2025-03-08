@@ -27,7 +27,7 @@ class StartScreen extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         // Rogue class button
-        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 400\nSpeed: 85%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
+        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 500\nSpeed: 85%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -115,7 +115,7 @@ class BossGame extends Phaser.Scene {
         this.bullets = null;
         this.bossBalls = null;
         // Set initial health based on class
-        this.aaravHealth = this.playerClass === 'rogue' ? 400 : 300;
+        this.aaravHealth = this.playerClass === 'rogue' ? 500 : 300;
         this.maxHealth = this.aaravHealth; // Store max health for UI scaling
         this.ruhhanHealth = 1500; // Buffed boss health
         this.lastShot = 0;
@@ -905,6 +905,29 @@ class BossGame extends Phaser.Scene {
             axe.setScale(0.4);
             axe.body.setAllowGravity(false);
             axe.isSpecialBeam = true;
+            // Add collision with boss for super axe
+            this.physics.add.overlap(axe, this.ruhaan, (axe, boss) => {
+                if (axe.active) {
+                    const damage = this.hyperChargeActive ? 150 : 100;
+                    this.ruhhanHealth -= damage;
+                    // Visual feedback for damage
+                    const damageText = this.add.text(boss.x, boss.y - 50, `-${damage}!`, {
+                        fontSize: '32px',
+                        fill: '#ff0000',
+                        fontStyle: 'bold'
+                    }).setOrigin(0.5);
+                    this.tweens.add({
+                        targets: damageText,
+                        y: damageText.y - 80,
+                        alpha: 0,
+                        duration: 800,
+                        onComplete: () => damageText.destroy()
+                    });
+                    // Destroy axe after hit
+                    axe.destroy();
+                    this.isPerformingSpecial = false;
+                }
+            }, null, this);
             // Enhanced throw speed and direction
             const throwSpeed = 1000;
             const direction = this.facingRight ? 1 : -1;
