@@ -16,7 +16,7 @@ class StartScreen extends Phaser.Scene {
             fill: '#fff'
         }).setOrigin(0.5);
         // Saiyan class button
-        const saiyanButton = this.add.text(400, 550, 'Saiyan\n\nHP: 300\nSpeed: 100%\nQ: Energy Beam\nE: Healing', {
+        const saiyanButton = this.add.text(400, 550, 'Saiyan\n\nHP: 450\nSpeed: 100%\nQ: Energy Beam\nE: Healing', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -156,8 +156,11 @@ class BossGame extends Phaser.Scene {
             this.mana = 100;
             this.maxMana = 100;
             this.manaRegenRate = 1; // Mana per second
+            this.lastFireTick = 0;
+            this.fireTickRate = 100; // Fire rate in milliseconds
+            this.fireManaCost = 2; // Mana cost per fire tick
         } else {
-            this.aaravHealth = 300;
+            this.aaravHealth = 450; // Increased Saiyan health
         }
         this.maxHealth = this.aaravHealth;
         this.ruhhanHealth = 1500; // Buffed boss health
@@ -551,7 +554,47 @@ class BossGame extends Phaser.Scene {
     }
 
     shoot() {
-        if (this.playerClass === 'saiyan') {
+        if (this.playerClass === 'mage') {
+            if (this.spaceKey.isDown && this.mana >= this.fireManaCost && this.time.now > this.lastFireTick + this.fireTickRate) {
+                // Create fire projectile
+                const fire = this.add.circle(
+                    this.aarav.x + (this.facingRight ? 25 : -25),
+                    this.aarav.y,
+                    8,
+                    0xff4400
+                );
+                this.bullets.add(fire);
+                fire.isFire = true;
+                // Set fire properties
+                const fireSpeed = 600;
+                fire.body.setVelocityX(this.facingRight ? fireSpeed : -fireSpeed);
+                fire.body.setAllowGravity(false);
+                // Add fire particle effects
+                for (let i = 0; i < 3; i++) {
+                    const particle = this.add.circle(
+                        fire.x,
+                        fire.y,
+                        4,
+                        0xff8800
+                    );
+                    this.tweens.add({
+                        targets: particle,
+                        alpha: 0,
+                        scale: 0.5,
+                        x: particle.x + (this.facingRight ? -20 : 20),
+                        y: particle.y + Phaser.Math.Between(-10, 10),
+                        duration: 200,
+                        onComplete: () => particle.destroy()
+                    });
+                }
+                // Drain mana and update last fire tick
+                this.mana -= this.fireManaCost;
+                this.lastFireTick = this.time.now;
+                // Charge super slightly for each fire
+                this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 0.15);
+                this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.05);
+            }
+        } else if (this.playerClass === 'saiyan') {
             const bulletSpeed = 400;
             const bulletOffset = this.facingRight ? 25 : -25;
             const bullet = this.add.rectangle(this.aarav.x + bulletOffset, this.aarav.y, 10, 5, 0xffff00);
@@ -963,7 +1006,20 @@ class BossGame extends Phaser.Scene {
     hitBoss(ruhaan, bullet) {
         bullet.destroy();
         let damage = 0;
-
+        // Special handling for Rogue's special attack
+        if (bullet.isRogueSpecial) {
+            damage = bullet.isSpecialBeam ? 150 : 40; // One-time high damage
+        } else {
+            if (bullet.isSpecialBeam) {
+                damage = this.playerClass === 'rogue' ? 75 : 50;
+            } else if (bullet.isRogueBasicAttack) {
+                damage = 40;
+            } else if (bullet.isFire) {
+                damage = 8; // Mage's fire damage
+            } else {
+                damage = this.playerClass === 'rogue' ? 40 : 15;
+            }
+        }
         // Create damage counter text
         const damageText = this.add.text(ruhaan.x, ruhaan.y - 50, '', {
             fontSize: '28px',
@@ -1227,10 +1283,16 @@ class BossGame extends Phaser.Scene {
     }
     hitMinion(bullet, minion) {
         if (!minion.active || !bullet.active) return;
-
         bullet.destroy();
-
-        let damage = bullet.isSpecialBeam ? 30 : 15;
+        let damage = 15; // Base damage
+        // Determine damage based on attack type and class
+        if (bullet.isSpecialBeam) {
+            damage = this.playerClass === 'rogue' ? 75 : 50;
+        } else if (bullet.isRogueBasicAttack) {
+            damage = 25; // Rogue's axe damage to minions
+        } else if (bullet.isFire) {
+            damage = 8; // Mage's fire damage
+        }
 
         // Increase damage during hypercharge
         if (this.hyperChargeActive) {
@@ -1392,13 +1454,12 @@ class BossGame extends Phaser.Scene {
         } else if (this.playerClass === 'rogue') {
             // Initialize properties for rogue's super axe
             this.isPerformingSpecial = true;
-
             // Create and throw enhanced axe
             const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
             axe.setScale(0.4);
             axe.body.setAllowGravity(false);
             axe.isSpecialBeam = true;
-            axe.hasHitOnce = false;
+            axe.isRogueSpecial = true; // Mark as Rogue's special attack
 
             // Add collision with boss for super axe
             this.physics.add.overlap(axe, this.ruhaan, (axe, boss) => {
@@ -1503,6 +1564,31 @@ class BossGame extends Phaser.Scene {
                 this.bullets.add(beam);
                 beam.isSpecialBeam = true;
                 beam.body.setAllowGravity(false);
+
+                // Add minion collision for beam
+                this.physics.add.overlap(beam, this.minions, (beam, minion) => {
+                    const damage = this.hyperChargeActive ? 75 : 50;
+                    minion.health -= damage;
+
+                    // Visual feedback for minion damage
+                    const damageText = this.add.text(minion.x, minion.y - 30, `-${damage}`, {
+                        fontSize: '24px',
+                        fill: this.hyperChargeActive ? '#800080' : '#00ffff'
+                    }).setOrigin(0.5);
+
+                    this.tweens.add({
+                        targets: damageText,
+                        y: damageText.y - 50,
+                        alpha: 0,
+                        duration: 500,
+                        onComplete: () => damageText.destroy()
+                    });
+
+                    // Update minion health bar
+                    if (minion.updateHealthBar) {
+                        minion.updateHealthBar();
+                    }
+                }, null, this);
 
                 // Set beam direction based on player facing
                 const direction = this.facingRight ? 1 : -1;
