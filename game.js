@@ -216,7 +216,8 @@ class BossGame extends Phaser.Scene {
         this.platforms.create(250, 500, 'platform').setScale(0.8, 0.3).refreshBody();
 
         // Create Aarav (hero) using sprite from asset list
-        this.aarav = this.physics.add.sprite(100, 450, 'download (7)');
+        this.aarav = this.physics.add.sprite(100, 450, 'aarav');
+        this.physics.world.enable(this.aarav);
         this.aarav.body.setBounce(0);
         this.aarav.body.setCollideWorldBounds(true);
         this.aarav.body.setGravityY(600);
@@ -225,11 +226,13 @@ class BossGame extends Phaser.Scene {
 
         // Create Ruhaan (boss) using sprite
         this.ruhaan = this.physics.add.sprite(700, 450, 'ruhaan');
+        this.physics.world.enable(this.ruhaan);
         this.ruhaan.setScale(1.2);
         this.ruhaan.body.setBounce(0.2);
         this.ruhaan.body.setCollideWorldBounds(true);
         this.ruhaan.body.setGravityY(300);
         this.ruhaan.body.setSize(80, 120);
+        this.ruhaan.body.moves = true;
 
 
         // Create groups for projectiles
@@ -338,12 +341,20 @@ class BossGame extends Phaser.Scene {
     }
 
     update(time, delta) {
-        // Ensure physics world is active
-        if (!this.physics.world.active) {
+        // Basic validation
+        if (!this.aarav || !this.ruhaan) {
             return;
         }
-
+        // Ensure physics world is active and running
+        this.physics.world.resume();
         const deltaSeconds = delta / 1000;
+        // Debug physics bodies
+        if (this.aarav.body) {
+            console.log('Aarav velocity:', this.aarav.body.velocity.x, this.aarav.body.velocity.y);
+        }
+        if (this.ruhaan.body) {
+            console.log('Ruhaan velocity:', this.ruhaan.body.velocity.x, this.ruhaan.body.velocity.y);
+        }
         // Rogue passive health regeneration - only when moving
         if (this.playerClass === 'rogue' &&
             this.aaravHealth < this.maxHealth &&
@@ -663,16 +674,21 @@ class BossGame extends Phaser.Scene {
                 this.lastBossAttack = this.time.now;
             }
         }
-        // Update active minions
+        // Get list of active minions
+        const activeMinions = this.minions.getChildren();
+
+        // Update each active minion
         for (let i = 0; i < activeMinions.length; i++) {
             const minion = activeMinions[i];
-            const dx = this.aarav.x - minion.x;
-            const dy = this.aarav.y - minion.y;
-            const angle = Math.atan2(dy, dx);
-            minion.setVelocityX(Math.cos(angle) * 150);
+            if (minion && minion.active && minion.body) {
+                const dx = this.aarav.x - minion.x;
+                const dy = this.aarav.y - minion.y;
+                const angle = Math.atan2(dy, dx);
+                minion.setVelocityX(Math.cos(angle) * 150);
 
-            if (minion.body.touching.down && this.aarav.y < minion.y - 50) {
-                minion.setVelocityY(-400);
+                if (minion.body.touching.down && this.aarav.y < minion.y - 50) {
+                    minion.setVelocityY(-400);
+                }
             }
         }
         // If boss is stunned, don't perform any actions
