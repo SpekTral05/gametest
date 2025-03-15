@@ -115,6 +115,10 @@ class BossGame extends Phaser.Scene {
     }
     init(data) {
         // Initialize game variables
+        this.spellWeavingMultiplier = 1.0;
+        this.lastSpellCastTime = 0;
+        this.spellWeavingTimeout = 2000; // Reset after 2 seconds
+        this.maxSpellWeaving = 2.0; // Cap at 100% bonus damage
         this.activeAxe = null; // Add this line to track the thrown axe
         this.aarav = null;
         this.minions = this.physics.add.group(); // Group for smaller enemies
@@ -406,6 +410,11 @@ class BossGame extends Phaser.Scene {
         // Basic validation
         if (!this.aarav || !this.ruhaan) {
             return;
+        }
+
+        // Reset spell weaving if too much time has passed since last cast
+        if (this.playerClass === 'mage' && time - this.lastSpellCastTime > this.spellWeavingTimeout) {
+            this.spellWeavingMultiplier = 1.0;
         }
 
         // Update minion health bars
@@ -1370,8 +1379,97 @@ class BossGame extends Phaser.Scene {
     }
     specialAttack() {
         if (this.playerClass === 'mage' && this.mana >= 50) {
-            // Lightning Storm attack
+            // Enhanced Lightning Storm attack
             this.mana -= 50;
+
+            // Screen shake effect
+            this.cameras.main.shake(1000, 0.005);
+
+            // Create multiple lightning strikes
+            const numStrikes = 8;
+            const strikeDelay = 150; // Time between strikes
+
+            for (let i = 0; i < numStrikes; i++) {
+                this.time.delayedCall(i * strikeDelay, () => {
+                    // Random position near the boss
+                    const strikeX = this.ruhaan.x + Phaser.Math.Between(-200, 200);
+
+                    // Create main lightning bolt
+                    const lightning = this.add.line(0, 0, strikeX, 0, strikeX, 1000, 0x00ffff);
+                    lightning.setLineWidth(3);
+
+                    // Create lightning flash effect
+                    const flash = this.add.rectangle(strikeX, 500, 100, 1000, 0x00ffff, 0.3);
+
+                    // Animate lightning and flash
+                    this.tweens.add({
+                        targets: [lightning, flash],
+                        alpha: 0,
+                        duration: 200,
+                        onComplete: () => {
+                            lightning.destroy();
+                            flash.destroy();
+                        }
+                    });
+
+                    // Create electrical zone on ground
+                    const zone = this.add.circle(strikeX, 950, 50, 0x00ffff, 0.4);
+                    this.physics.add.existing(zone, true);
+
+                    // Pulsing effect for zone
+                    this.tweens.add({
+                        targets: zone,
+                        scale: 1.2,
+                        alpha: 0.6,
+                        yoyo: true,
+                        repeat: 4,
+                        duration: 200
+                    });
+
+                    // Check for enemies in strike area
+                    const strikeBounds = new Phaser.Geom.Rectangle(strikeX - 50, 0, 100, 1000);
+
+                    // Apply damage with spell weaving multiplier
+                    if (Phaser.Geom.Rectangle.Overlaps(strikeBounds, this.ruhaan.getBounds())) {
+                        const damage = 30 * this.spellWeavingMultiplier;
+                        this.ruhhanHealth -= damage;
+
+                        // Chain lightning effect to nearby minions
+                        this.minions.getChildren().forEach(minion => {
+                            if (Phaser.Math.Distance.Between(this.ruhaan.x, this.ruhaan.y, minion.x, minion.y) < 300) {
+                                // Create chain lightning visual
+                                const chain = this.add.line(0, 0, this.ruhaan.x, this.ruhaan.y, minion.x, minion.y, 0x00ffff);
+                                chain.setLineWidth(2);
+
+                                this.tweens.add({
+                                    targets: chain,
+                                    alpha: 0,
+                                    duration: 200,
+                                    onComplete: () => chain.destroy()
+                                });
+
+                                // Apply chain damage
+                                const chainDamage = 20 * this.spellWeavingMultiplier;
+                                minion.health -= chainDamage;
+                                if (minion.updateHealthBar) {
+                                    minion.updateHealthBar();
+                                }
+                            }
+                        });
+                    }
+
+                    // Cleanup zones after duration
+                    this.time.delayedCall(2000, () => {
+                        if (zone.active) {
+                            zone.destroy();
+                        }
+                    });
+                });
+            }
+
+            // Update spell weaving
+            this.spellWeavingMultiplier = Math.min(this.maxSpellWeaving, this.spellWeavingMultiplier + 0.2);
+            this.lastSpellCastTime = this.time.now;
 
             // Create lightning effect
             const lightningPoints = [];
@@ -1775,9 +1873,126 @@ class BossGame extends Phaser.Scene {
     }
     healingSuper() {
         if (this.playerClass === 'mage' && this.mana >= 30) {
-            // Arcane Shield
+            // Arcane Teleport
             this.mana -= 30;
-            this.defenseBoostActive = true;
+
+            // Get cursor position relative to camera
+            const pointer = this.input.activePointer;
+            const targetX = pointer.x + this.cameras.main.scrollX;
+            const targetY = pointer.y + this.cameras.main.scrollY;
+
+            // Calculate teleport direction and distance
+            const dx = targetX - this.aarav.x;
+            const dy = targetY - this.aarav.y;
+            const distance = Math.min(300, Math.sqrt(dx * dx + dy * dy)); // Max 300 pixels
+            const angle = Math.atan2(dy, dx);
+
+            // Store original position for rune placement
+            const originalX = this.aarav.x;
+            const originalY = this.aarav.y;
+
+            // Create teleport effect at start position
+            const startEffect = this.add.circle(originalX, originalY, 20, 0x6600ff);
+            this.tweens.add({
+                targets: startEffect,
+                scale: 2,
+                alpha: 0,
+                duration: 300,
+                onComplete: () => startEffect.destroy()
+            });
+
+            // Make player briefly invulnerable
+            this.aarav.isInvulnerable = true;
+
+            // Teleport player
+            const newX = this.aarav.x + Math.cos(angle) * distance;
+            const newY = this.aarav.y + Math.sin(angle) * distance;
+            this.aarav.setPosition(newX, newY);
+
+            // Create arrival effect
+            const arrivalEffect = this.add.circle(newX, newY, 20, 0x6600ff);
+            this.tweens.add({
+                targets: arrivalEffect,
+                scale: 2,
+                alpha: 0,
+                duration: 300,
+                onComplete: () => arrivalEffect.destroy()
+            });
+
+            // Create damaging rune at original position
+            const rune = this.add.circle(originalX, originalY, 30, 0xff00ff, 0.7);
+            this.physics.add.existing(rune, false);
+
+            // Rune pulse effect
+            this.tweens.add({
+                targets: rune,
+                scale: 1.5,
+                alpha: 0.9,
+                yoyo: true,
+                repeat: 2,
+                duration: 300
+            });
+
+            // Rune explosion after delay
+            this.time.delayedCall(1000, () => {
+                // Create explosion effect
+                const explosion = this.add.circle(rune.x, rune.y, 100, 0xff00ff, 0.5);
+
+                // Check for enemies in explosion radius
+                const explosionBounds = new Phaser.Geom.Circle(rune.x, rune.y, 100);
+
+                // Damage boss if in range
+                if (Phaser.Geom.Circle.Contains(explosionBounds, this.ruhaan.x, this.ruhaan.y)) {
+                    const runeDamage = 40 * this.spellWeavingMultiplier;
+                    this.ruhhanHealth -= runeDamage;
+
+                    const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${Math.floor(runeDamage)}`, {
+                        fontSize: '24px',
+                        fill: '#ff00ff'
+                    }).setOrigin(0.5);
+
+                    this.tweens.add({
+                        targets: damageText,
+                        y: damageText.y - 50,
+                        alpha: 0,
+                        duration: 500,
+                        onComplete: () => damageText.destroy()
+                    });
+                }
+
+                // Damage minions in range
+                this.minions.getChildren().forEach(minion => {
+                    if (Phaser.Geom.Circle.Contains(explosionBounds, minion.x, minion.y)) {
+                        const runeDamage = 30 * this.spellWeavingMultiplier;
+                        minion.health -= runeDamage;
+
+                        if (minion.updateHealthBar) {
+                            minion.updateHealthBar();
+                        }
+                    }
+                });
+
+                // Explosion animation
+                this.tweens.add({
+                    targets: explosion,
+                    scale: 1.5,
+                    alpha: 0,
+                    duration: 300,
+                    onComplete: () => {
+                        explosion.destroy();
+                        rune.destroy();
+                    }
+                });
+            });
+
+            // Remove invulnerability after short delay
+            this.time.delayedCall(300, () => {
+                this.aarav.isInvulnerable = false;
+            });
+
+            // Update spell weaving
+            this.spellWeavingMultiplier = Math.min(this.maxSpellWeaving, this.spellWeavingMultiplier + 0.2);
+            this.lastSpellCastTime = this.time.now;
 
             // Create shield effect
             const shield = this.add.circle(this.aarav.x, this.aarav.y, 50, 0x0000ff, 0.3);
