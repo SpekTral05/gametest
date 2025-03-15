@@ -338,11 +338,11 @@ class BossGame extends Phaser.Scene {
     }
 
     update(time, delta) {
-        // Early exit if game is paused or over
-        if (!this.aarav || !this.ruhaan || !this.physics.world.active) {
+        // Ensure physics world is active
+        if (!this.physics.world.active) {
             return;
         }
-        // Convert delta to seconds for consistent timing
+
         const deltaSeconds = delta / 1000;
         // Rogue passive health regeneration - only when moving
         if (this.playerClass === 'rogue' &&
@@ -628,24 +628,41 @@ class BossGame extends Phaser.Scene {
     }
 
     updateBoss() {
-        // Early exit conditions
-        if (!this.ruhaan || !this.aarav || this.isPerformingSpecial || this.ruhaan.isStunned) {
+        // Basic validation
+        if (!this.ruhaan || !this.aarav) {
             return;
         }
-        // Spawn minions at intervals with limit
-        const currentMinions = this.minions.getChildren();
-        if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval &&
-            currentMinions.length < 3) {
-            this.spawnMinion();
-            this.lastMinionSpawn = this.time.now;
-        }
-        // Batch update minions using reduce instead of forEach
-        const activeMinions = currentMinions.reduce((acc, minion) => {
-            if (minion && minion.active && minion.body) {
-                acc.push(minion);
+        // Spawn minions
+        if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval) {
+            if (this.minions.getChildren().length < 3) {
+                this.spawnMinion();
+                this.lastMinionSpawn = this.time.now;
             }
-            return acc;
-        }, []);
+        }
+        // Skip AI if stunned
+        if (this.ruhaan.isStunned) {
+            return;
+        }
+        // Basic movement towards player
+        const dx = this.aarav.x - this.ruhaan.x;
+        const distance = Math.abs(dx);
+        // Move towards player
+        if (distance > 200) {
+            this.ruhaan.setVelocityX(dx > 0 ? 150 : -150);
+        } else {
+            this.ruhaan.setVelocityX(0);
+        }
+        // Jump if player is above
+        if (this.ruhaan.body.touching.down && this.aarav.y < this.ruhaan.y - 100) {
+            this.ruhaan.setVelocityY(-500);
+        }
+        // Attack when in range
+        if (this.time.now > this.lastBossAttack + 2000) {
+            if (distance < 400) {
+                this.bossBallAttack();
+                this.lastBossAttack = this.time.now;
+            }
+        }
         // Update active minions
         for (let i = 0; i < activeMinions.length; i++) {
             const minion = activeMinions[i];
@@ -1039,26 +1056,27 @@ class BossGame extends Phaser.Scene {
         }
     }
     spawnMinion() {
-        // Create minion using Ruhaan sprite
         const spawnSide = Math.random() > 0.5 ? 'left' : 'right';
         const x = spawnSide === 'left' ? 100 : 1500;
         const minion = this.physics.add.sprite(x, 200, 'ruhaan');
-        this.minions.add(minion);
 
-        // Set up minion properties
-        minion.health = 30;
+        // Add minion to group and setup physics
+        this.minions.add(minion);
         minion.body.setBounce(0.2);
         minion.body.setCollideWorldBounds(true);
         minion.body.setGravityY(600);
-        minion.setScale(0.6); // Make minions smaller than the boss
-        minion.body.setSize(60, 90); // Adjust hitbox for smaller size
 
-        // Flip sprite based on spawn side
-        if (spawnSide === 'left') {
-            minion.flipX = false;
-        } else {
-            minion.flipX = true;
-        }
+        // Visual setup
+        minion.setScale(0.6);
+        minion.flipX = spawnSide === 'right';
+
+        // Add colliders
+        this.physics.add.collider(minion, this.platforms);
+        this.physics.add.collider(minion, this.movingPlatforms);
+
+        // Setup properties
+        minion.health = 30;
+        minion.setVelocityX(spawnSide === 'left' ? 150 : -150);
     }
     hitByMinion(player, minion) {
         if (!this.hitCooldown) {
