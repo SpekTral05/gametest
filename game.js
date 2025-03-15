@@ -131,17 +131,10 @@ class BossGame extends Phaser.Scene {
         this.load.audio('bgMusic', 'https://play.rosebud.ai/assets/Bossfight - Milky Ways.mp3?5Zus');
         // Load axe sprite
         this.load.image('axe', 'https://play.rosebud.ai/assets/GreatAxe.png?K7Gg');
-        // Load background image
-        this.load.image('background', 'https://play.rosebud.ai/assets/z2hyet3gihd71.jpg?z1yj');
-        // Load player animations
-        this.load.spritesheet('aarav_idle', 'https://play.rosebud.ai/assets/New Piskel.gif?jB4G', {
-            frameWidth: 128,
-            frameHeight: 128
-        });
-        this.load.spritesheet('aarav_run', 'https://play.rosebud.ai/assets/aarav run.png?fu9Y', {
-            frameWidth: 128,
-            frameHeight: 128
-        });
+        // Load Aarav sprite
+        this.load.image('aarav', 'https://play.rosebud.ai/assets/download (7).png?U0PX');
+        // Load Ruhaan sprite
+        this.load.image('ruhaan', 'https://play.rosebud.ai/assets/cc589bfa899244f7e5459ee8d53d5f48QVx8i5AmRuChTD6w-2.png?4yBW');
         // Create platform texture
         let graphics = this.add.graphics();
         graphics.fillStyle(0x666666);
@@ -156,9 +149,10 @@ class BossGame extends Phaser.Scene {
             volume: 0.4
         });
         this.bgMusic.play();
-        // Set background
-        this.add.image(800, 500, 'background').setScale(2.8, 2.2);
+        // Set background color and camera bounds
+        this.cameras.main.setBackgroundColor('#4488AA');
         this.cameras.main.setBounds(0, 0, 1600, 1000);
+        this.add.rectangle(800, 500, 1600, 1000, 0x4488AA);
         this.physics.world.setBounds(0, 0, 1600, 1000);
 
         // Create static group for platforms
@@ -168,96 +162,70 @@ class BossGame extends Phaser.Scene {
         this.destructiblePlatforms = this.physics.add.staticGroup();
         this.bouncePads = this.physics.add.staticGroup();
 
-        // Create main ground with gaps
-        this.platforms.create(400, 980, 'platform').setScale(4, 0.5).refreshBody();
-        this.platforms.create(1200, 980, 'platform').setScale(4, 0.5).refreshBody();
-
-        // Create moving platforms
-        const movingPlat1 = this.add.rectangle(300, 700, 200, 20, 0x00ff00);
-        const movingPlat2 = this.add.rectangle(1300, 700, 200, 20, 0x00ff00);
-        this.movingPlatforms.addMultiple([movingPlat1, movingPlat2]);
+        // Create asymmetric ground platforms
+        this.platforms.create(300, 980, 'platform').setScale(3, 0.5).refreshBody();
+        this.platforms.create(900, 980, 'platform').setScale(2, 0.5).refreshBody();
+        this.platforms.create(1400, 980, 'platform').setScale(2.5, 0.5).refreshBody();
+        // Create varied moving platforms
+        const movingPlat1 = this.add.rectangle(200, 650, 150, 20, 0x00ff00);
+        const movingPlat2 = this.add.rectangle(1100, 750, 180, 20, 0x00ff00);
+        const movingPlat3 = this.add.rectangle(700, 550, 130, 20, 0x00ff00);
+        this.movingPlatforms.addMultiple([movingPlat1, movingPlat2, movingPlat3]);
         this.movingPlatforms.children.iterate(platform => {
             platform.body.allowGravity = false;
             platform.body.immovable = true;
         });
-
-        // Add platform movement
+        // Add varied platform movements
         this.tweens.add({
             targets: movingPlat1,
-            x: 700,
-            duration: 2000,
+            x: 500,
+            duration: 2500,
             yoyo: true,
             repeat: -1
         });
         this.tweens.add({
             targets: movingPlat2,
-            x: 900,
+            y: 550,
+            duration: 3000,
+            yoyo: true,
+            repeat: -1
+        });
+        this.tweens.add({
+            targets: movingPlat3,
+            x: 1000,
             duration: 2000,
             yoyo: true,
             repeat: -1
         });
-
-        // Create destructible platforms
-        const destructPlat1 = this.add.rectangle(600, 600, 200, 20, 0xff0000);
-        const destructPlat2 = this.add.rectangle(1000, 600, 200, 20, 0xff0000);
-        this.destructiblePlatforms.addMultiple([destructPlat1, destructPlat2]);
+        // Create destructible platforms at varied heights
+        const destructPlat1 = this.add.rectangle(400, 700, 180, 20, 0xff0000);
+        const destructPlat2 = this.add.rectangle(1300, 600, 160, 20, 0xff0000);
+        const destructPlat3 = this.add.rectangle(800, 450, 140, 20, 0xff0000);
+        this.destructiblePlatforms.addMultiple([destructPlat1, destructPlat2, destructPlat3]);
         this.destructiblePlatforms.children.iterate(platform => {
             platform.health = 3;
         });
+        // Create strategically placed bounce pads
+        const bounce1 = this.add.rectangle(150, 900, 80, 20, 0xffff00);
+        const bounce2 = this.add.rectangle(1450, 900, 80, 20, 0xffff00);
+        const bounce3 = this.add.rectangle(750, 900, 80, 20, 0xffff00);
+        this.bouncePads.addMultiple([bounce1, bounce2, bounce3]);
+        // Add varied static platforms
+        this.platforms.create(600, 350, 'platform').setScale(1.5, 0.3).refreshBody();
+        this.platforms.create(1100, 420, 'platform').setScale(1.2, 0.3).refreshBody();
+        this.platforms.create(250, 500, 'platform').setScale(0.8, 0.3).refreshBody();
 
-        // Create bounce pads
-        const bounce1 = this.add.rectangle(200, 900, 100, 20, 0xffff00);
-        const bounce2 = this.add.rectangle(1400, 900, 100, 20, 0xffff00);
-        this.bouncePads.addMultiple([bounce1, bounce2]);
-
-        // Add static platforms for vertical movement
-        this.platforms.create(800, 400, 'platform').setScale(2, 0.3).refreshBody();
-        this.platforms.create(400, 500, 'platform').setScale(1, 0.3).refreshBody();
-        this.platforms.create(1200, 500, 'platform').setScale(1, 0.3).refreshBody();
-
-        // Create Aarav (hero) with animations
-        this.aarav = this.add.sprite(100, 450, 'aarav_idle');
-        this.physics.add.existing(this.aarav);
+        // Create Aarav (hero) using sprite from asset list
+        this.aarav = this.physics.add.sprite(100, 450, 'download (7)');
         this.aarav.body.setBounce(0);
         this.aarav.body.setCollideWorldBounds(true);
         this.aarav.body.setGravityY(600);
         this.aarav.body.setSize(50, 80);
         this.aarav.setScale(0.8);
 
-        // Create animations
-        this.anims.create({
-            key: 'idle',
-            frames: this.anims.generateFrameNumbers('aarav_idle', {
-                start: 0,
-                end: 3
-            }),
-            frameRate: 8,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'run_right',
-            frames: this.anims.generateFrameNumbers('aarav_run', {
-                start: 0,
-                end: 2
-            }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'run_left',
-            frames: this.anims.generateFrameNumbers('aarav_run', {
-                start: 3,
-                end: 5
-            }),
-            frameRate: 10,
-            repeat: -1
-        });
-        // Start with idle animation
-        this.aarav.play('idle');
-
-        // Create Ruhaan (boss)
-        this.ruhaan = this.add.rectangle(700, 450, 80, 120, 0xff0000);
-        this.physics.add.existing(this.ruhaan);
+        // Create Ruhaan (boss) using sprite
+        this.ruhaan = this.physics.add.sprite(700, 450, 'ruhaan');
+        this.ruhaan.setScale(1.2);
         this.ruhaan.body.setBounce(0.2);
         this.ruhaan.body.setCollideWorldBounds(true);
         this.ruhaan.body.setGravityY(300);
@@ -369,13 +337,19 @@ class BossGame extends Phaser.Scene {
         this.eKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
     }
 
-    update() {
+    update(time, delta) {
+        // Early exit if game is paused or over
+        if (!this.aarav || !this.ruhaan || !this.physics.world.active) {
+            return;
+        }
+        // Convert delta to seconds for consistent timing
+        const deltaSeconds = delta / 1000;
         // Rogue passive health regeneration - only when moving
         if (this.playerClass === 'rogue' &&
             this.aaravHealth < this.maxHealth &&
             (this.aarav.body.velocity.x !== 0 || this.aarav.body.velocity.y !== 0)) {
-            // Regenerate 3 HP per second (adjust for frame rate)
-            this.aaravHealth = Math.min(this.maxHealth, this.aaravHealth + (3 / 60));
+            // Regenerate 3 HP per second using delta time
+            this.aaravHealth = Math.min(this.maxHealth, this.aaravHealth + (3 * deltaSeconds));
         }
 
         // Handle poison damage
@@ -419,14 +393,11 @@ class BossGame extends Phaser.Scene {
         if (this.cursors.left.isDown) {
             this.aarav.body.setVelocityX(-moveSpeed);
             this.facingRight = false;
-            this.aarav.play('run_left', true);
         } else if (this.cursors.right.isDown) {
             this.aarav.body.setVelocityX(moveSpeed);
             this.facingRight = true;
-            this.aarav.play('run_right', true);
         } else {
             this.aarav.body.setVelocityX(0);
-            this.aarav.play('idle', true);
         }
         // Player jump with better ground detection
         // Player jump with better ground detection
@@ -657,29 +628,35 @@ class BossGame extends Phaser.Scene {
     }
 
     updateBoss() {
-        if (!this.isPerformingSpecial && !this.ruhaan.isStunned) {
-            // Spawn minions at intervals, but limit the total number
-            if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval &&
-                this.minions.getChildren().length < 3) { // Maximum 3 minions at a time
-                this.spawnMinion();
-                this.lastMinionSpawn = this.time.now;
+        // Early exit conditions
+        if (!this.ruhaan || !this.aarav || this.isPerformingSpecial || this.ruhaan.isStunned) {
+            return;
+        }
+        // Spawn minions at intervals with limit
+        const currentMinions = this.minions.getChildren();
+        if (this.time.now > this.lastMinionSpawn + this.minionSpawnInterval &&
+            currentMinions.length < 3) {
+            this.spawnMinion();
+            this.lastMinionSpawn = this.time.now;
+        }
+        // Batch update minions using reduce instead of forEach
+        const activeMinions = currentMinions.reduce((acc, minion) => {
+            if (minion && minion.active && minion.body) {
+                acc.push(minion);
             }
-            // Update minion behavior with performance optimizations
-            this.minions.getChildren().forEach(minion => {
-                if (minion && minion.active && minion.body) {
-                    const dx = this.aarav.x - minion.x;
-                    const dy = this.aarav.y - minion.y;
-                    const angle = Math.atan2(dy, dx);
-                    const speed = 150;
-                    minion.setVelocityX(Math.cos(angle) * speed);
-                    // Optimized jump logic
-                    if (minion.body.touching.down) {
-                        if (this.aarav.y < minion.y - 50) {
-                            minion.setVelocityY(-400);
-                        }
-                    }
-                }
-            });
+            return acc;
+        }, []);
+        // Update active minions
+        for (let i = 0; i < activeMinions.length; i++) {
+            const minion = activeMinions[i];
+            const dx = this.aarav.x - minion.x;
+            const dy = this.aarav.y - minion.y;
+            const angle = Math.atan2(dy, dx);
+            minion.setVelocityX(Math.cos(angle) * 150);
+
+            if (minion.body.touching.down && this.aarav.y < minion.y - 50) {
+                minion.setVelocityY(-400);
+            }
         }
         // If boss is stunned, don't perform any actions
         if (this.ruhaan.isStunned) {
@@ -1062,17 +1039,26 @@ class BossGame extends Phaser.Scene {
         }
     }
     spawnMinion() {
-        // Create minion at random location
+        // Create minion using Ruhaan sprite
         const spawnSide = Math.random() > 0.5 ? 'left' : 'right';
         const x = spawnSide === 'left' ? 100 : 1500;
-        const minion = this.add.circle(x, 200, 15, 0xff0000);
-        this.physics.add.existing(minion); // Add physics body explicitly
+        const minion = this.physics.add.sprite(x, 200, 'ruhaan');
         this.minions.add(minion);
+
         // Set up minion properties
         minion.health = 30;
         minion.body.setBounce(0.2);
         minion.body.setCollideWorldBounds(true);
-        minion.body.setGravityY(1000); // Match world gravity
+        minion.body.setGravityY(600);
+        minion.setScale(0.6); // Make minions smaller than the boss
+        minion.body.setSize(60, 90); // Adjust hitbox for smaller size
+
+        // Flip sprite based on spawn side
+        if (spawnSide === 'left') {
+            minion.flipX = false;
+        } else {
+            minion.flipX = true;
+        }
     }
     hitByMinion(player, minion) {
         if (!this.hitCooldown) {
