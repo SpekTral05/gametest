@@ -16,7 +16,7 @@ class StartScreen extends Phaser.Scene {
             fill: '#fff'
         }).setOrigin(0.5);
         // Saiyan class button
-        const saiyanButton = this.add.text(600, 550, 'Saiyan\n\nHP: 300\nSpeed: 100%\nQ: Energy Beam\nE: Healing', {
+        const saiyanButton = this.add.text(400, 550, 'Saiyan\n\nHP: 300\nSpeed: 100%\nQ: Energy Beam\nE: Healing', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -27,7 +27,18 @@ class StartScreen extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         // Rogue class button
-        const rogueButton = this.add.text(1000, 550, 'Rogue\n\nHP: 500\nSpeed: 85%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
+        const rogueButton = this.add.text(800, 550, 'Rogue\n\nHP: 500\nSpeed: 85%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
+                fontSize: '24px',
+                fill: '#fff',
+                align: 'center'
+            }).setOrigin(0.5)
+            .setInteractive()
+            .setPadding(20)
+            .setStyle({
+                backgroundColor: '#111'
+            });
+        // Mage class button
+        const mageButton = this.add.text(1200, 550, 'Mage\n\nHP: 200\nSpeed: 75%\nQ: Lightning Storm\nE: Arcane Shield\nPassive: Mana Regeneration', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -39,7 +50,6 @@ class StartScreen extends Phaser.Scene {
             });
         // Highlight selected class
         let selectedClass = null;
-
         saiyanButton.on('pointerdown', () => {
             saiyanButton.setStyle({
                 backgroundColor: '#444'
@@ -47,8 +57,12 @@ class StartScreen extends Phaser.Scene {
             rogueButton.setStyle({
                 backgroundColor: '#111'
             });
+            mageButton.setStyle({
+                backgroundColor: '#111'
+            });
             selectedClass = 'saiyan';
         });
+
         rogueButton.on('pointerdown', () => {
             rogueButton.setStyle({
                 backgroundColor: '#444'
@@ -56,7 +70,23 @@ class StartScreen extends Phaser.Scene {
             saiyanButton.setStyle({
                 backgroundColor: '#111'
             });
+            mageButton.setStyle({
+                backgroundColor: '#111'
+            });
             selectedClass = 'rogue';
+        });
+
+        mageButton.on('pointerdown', () => {
+            mageButton.setStyle({
+                backgroundColor: '#444'
+            });
+            saiyanButton.setStyle({
+                backgroundColor: '#111'
+            });
+            rogueButton.setStyle({
+                backgroundColor: '#111'
+            });
+            selectedClass = 'mage';
         });
         // Start button
         const startButton = this.add.text(800, 700, 'Start Game', {
@@ -118,8 +148,18 @@ class BossGame extends Phaser.Scene {
         this.bullets = null;
         this.bossBalls = null;
         // Set initial health based on class
-        this.aaravHealth = this.playerClass === 'rogue' ? 500 : 300;
-        this.maxHealth = this.aaravHealth; // Store max health for UI scaling
+        // Set initial health based on class
+        if (this.playerClass === 'rogue') {
+            this.aaravHealth = 500;
+        } else if (this.playerClass === 'mage') {
+            this.aaravHealth = 200;
+            this.mana = 100;
+            this.maxMana = 100;
+            this.manaRegenRate = 1; // Mana per second
+        } else {
+            this.aaravHealth = 300;
+        }
+        this.maxHealth = this.aaravHealth;
         this.ruhhanHealth = 1500; // Buffed boss health
         this.lastShot = 0;
         this.lastBossAttack = 0;
@@ -333,6 +373,25 @@ class BossGame extends Phaser.Scene {
             chargeBg, chargeFrame, this.chargeBarFill, superText,
             hyperBg, hyperFrame, this.hyperChargeFill, hyperText
         ]);
+
+        // Add mana bar for mage class
+        if (this.playerClass === 'mage') {
+            const manaBg = this.add.rectangle(50, 230, 400, 25, 0x000000, 0.7);
+            const manaFrame = this.add.rectangle(50, 230, 400, 25, 0xffffff, 1);
+            this.manaBar = this.add.rectangle(50, 230, 400, 25, 0x0000ff);
+
+            manaBg.setOrigin(0, 0);
+            manaFrame.setOrigin(0, 0).setStrokeStyle(2, 0xffffff);
+            this.manaBar.setOrigin(0, 0);
+
+            const manaText = this.add.text(60, 210, 'MANA', {
+                fontSize: '20px',
+                fill: '#0000ff'
+            });
+
+            this.uiContainer.add([manaBg, manaFrame, this.manaBar, manaText]);
+        }
+
         this.hyperChargeFill.setOrigin(0, 0);
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -345,9 +404,23 @@ class BossGame extends Phaser.Scene {
         if (!this.aarav || !this.ruhaan) {
             return;
         }
+
+        // Update minion health bars
+        this.minions.getChildren().forEach(minion => {
+            if (minion.updateHealthBar) {
+                minion.updateHealthBar();
+            }
+        });
         // Ensure physics world is active and running
         this.physics.world.resume();
         const deltaSeconds = delta / 1000;
+
+        // Mage mana regeneration
+        if (this.playerClass === 'mage') {
+            this.mana = Math.min(this.maxMana, this.mana + (this.manaRegenRate * deltaSeconds));
+            this.manaBar.width = (this.mana / this.maxMana) * 400;
+        }
+
         // Debug physics bodies
         if (this.aarav.body) {
             console.log('Aarav velocity:', this.aarav.body.velocity.x, this.aarav.body.velocity.y);
@@ -1074,25 +1147,57 @@ class BossGame extends Phaser.Scene {
     spawnMinion() {
         const spawnSide = Math.random() > 0.5 ? 'left' : 'right';
         const x = spawnSide === 'left' ? 100 : 1500;
-        const minion = this.physics.add.sprite(x, 200, 'ruhaan');
-
+        const y = Phaser.Math.Between(100, 800); // Random height spawn
+        const minion = this.physics.add.sprite(x, y, 'aarav');
         // Add minion to group and setup physics
         this.minions.add(minion);
         minion.body.setBounce(0.2);
         minion.body.setCollideWorldBounds(true);
         minion.body.setGravityY(600);
-
-        // Visual setup
-        minion.setScale(0.6);
+        // Visual setup - make it look evil
+        minion.setScale(0.8);
+        minion.setTint(0xff0000); // Red tint for evil look
         minion.flipX = spawnSide === 'right';
+
+        // Setup properties
+        minion.health = 50; // Increased health
+        minion.maxHealth = 50;
+        minion.damageDealt = 15; // Damage dealt to player
+        minion.setVelocityX(spawnSide === 'left' ? 150 : -150);
+
+        // Add health bar
+        const healthBarWidth = 50;
+        const healthBarHeight = 6;
+        minion.healthBar = this.add.rectangle(
+            minion.x,
+            minion.y - 40,
+            healthBarWidth,
+            healthBarHeight,
+            0x00ff00
+        );
+        minion.healthBarBg = this.add.rectangle(
+            minion.x,
+            minion.y - 40,
+            healthBarWidth,
+            healthBarHeight,
+            0xff0000
+        );
+
+        // Update health bar position in game loop
+        minion.updateHealthBar = () => {
+            if (minion.active) {
+                const healthPercent = minion.health / minion.maxHealth;
+                minion.healthBar.width = healthBarWidth * healthPercent;
+                minion.healthBar.x = minion.x - (healthBarWidth * (1 - healthPercent)) / 2;
+                minion.healthBar.y = minion.y - 40;
+                minion.healthBarBg.x = minion.x;
+                minion.healthBarBg.y = minion.y - 40;
+            }
+        };
 
         // Add colliders
         this.physics.add.collider(minion, this.platforms);
         this.physics.add.collider(minion, this.movingPlatforms);
-
-        // Setup properties
-        minion.health = 30;
-        minion.setVelocityX(spawnSide === 'left' ? 150 : -150);
     }
     hitByMinion(player, minion) {
         if (!this.hitCooldown) {
@@ -1121,17 +1226,26 @@ class BossGame extends Phaser.Scene {
         }
     }
     hitMinion(bullet, minion) {
+        if (!minion.active || !bullet.active) return;
+
         bullet.destroy();
 
-        const damage = bullet.isSpecialBeam ? 30 : 15;
+        let damage = bullet.isSpecialBeam ? 30 : 15;
+
+        // Increase damage during hypercharge
+        if (this.hyperChargeActive) {
+            damage *= 1.5;
+        }
+
         minion.health -= damage;
 
         // Visual feedback
-        const damageText = this.add.text(minion.x, minion.y - 20, `-${damage}`, {
+        const damageText = this.add.text(minion.x, minion.y - 20, `-${Math.round(damage)}`, {
             fontSize: '20px',
-            fill: '#ff0000'
+            fill: bullet.isSpecialBeam ? '#00ffff' : '#ff0000',
+            stroke: '#000000',
+            strokeThickness: 2
         }).setOrigin(0.5);
-
         this.tweens.add({
             targets: damageText,
             y: damageText.y - 30,
@@ -1139,33 +1253,143 @@ class BossGame extends Phaser.Scene {
             duration: 500,
             onComplete: () => damageText.destroy()
         });
-
+        // Update health bar
+        minion.updateHealthBar();
         if (minion.health <= 0) {
             // Death effect
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 12; i++) {
                 const particle = this.add.circle(minion.x, minion.y, 4, 0xff0000);
-                const angle = (i / 8) * Math.PI * 2;
-                const speed = 100;
-
+                const angle = (i / 12) * Math.PI * 2;
+                const speed = 150;
                 this.tweens.add({
                     targets: particle,
                     x: particle.x + Math.cos(angle) * speed,
                     y: particle.y + Math.sin(angle) * speed,
                     alpha: 0,
-                    duration: 500,
+                    scale: 0.5,
+                    duration: 800,
                     onComplete: () => particle.destroy()
                 });
             }
-
+            // Destroy health bars
+            minion.healthBar.destroy();
+            minion.healthBarBg.destroy();
             minion.destroy();
+            // Increase charge for killing minions
+            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 1);
+            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.5);
 
-            // Increase charge slightly for killing minions
-            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 0.5);
-            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.25);
+            // Drop health orb with 20% chance
+            if (Math.random() < 0.2) {
+                const healthOrb = this.add.circle(minion.x, minion.y, 8, 0x00ff00);
+                this.physics.add.existing(healthOrb);
+                healthOrb.body.setGravityY(300);
+
+                this.physics.add.overlap(this.aarav, healthOrb, () => {
+                    this.aaravHealth = Math.min(this.maxHealth, this.aaravHealth + 25);
+
+                    const healText = this.add.text(this.aarav.x, this.aarav.y - 40, '+25', {
+                        fontSize: '20px',
+                        fill: '#00ff00'
+                    }).setOrigin(0.5);
+
+                    this.tweens.add({
+                        targets: healText,
+                        y: healText.y - 50,
+                        alpha: 0,
+                        duration: 800,
+                        onComplete: () => healText.destroy()
+                    });
+
+                    healthOrb.destroy();
+                });
+            }
         }
     }
     specialAttack() {
-        if (this.playerClass === 'rogue') {
+        if (this.playerClass === 'mage' && this.mana >= 50) {
+            // Lightning Storm attack
+            this.mana -= 50;
+
+            // Create lightning effect
+            const lightningPoints = [];
+            for (let i = 0; i < 5; i++) {
+                lightningPoints.push({
+                    x: this.ruhaan.x + Phaser.Math.Between(-200, 200),
+                    y: 0
+                });
+            }
+
+            lightningPoints.forEach((point, index) => {
+                // Create lightning bolt
+                const lightning = this.add.line(0, 0, point.x, 0, point.x, 1000, 0x00ffff);
+                lightning.setLineWidth(3);
+
+                // Flash effect
+                this.tweens.add({
+                    targets: lightning,
+                    alpha: {
+                        from: 1,
+                        to: 0
+                    },
+                    duration: 200,
+                    yoyo: true,
+                    repeat: 2,
+                    delay: index * 100,
+                    onComplete: () => lightning.destroy()
+                });
+
+                // Check for hits
+                const hitArea = new Phaser.Geom.Rectangle(point.x - 50, 0, 100, 1000);
+
+                // Damage boss if in strike area
+                if (Phaser.Geom.Rectangle.Overlaps(hitArea, this.ruhaan.getBounds())) {
+                    const damage = this.hyperChargeActive ? 45 : 30;
+                    this.ruhhanHealth -= damage;
+
+                    // Damage text
+                    const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${damage}`, {
+                        fontSize: '32px',
+                        fill: '#00ffff'
+                    }).setOrigin(0.5);
+
+                    this.tweens.add({
+                        targets: damageText,
+                        y: damageText.y - 80,
+                        alpha: 0,
+                        duration: 800,
+                        onComplete: () => damageText.destroy()
+                    });
+                }
+
+                // Damage minions in strike area
+                this.minions.getChildren().forEach(minion => {
+                    if (Phaser.Geom.Rectangle.Overlaps(hitArea, minion.getBounds())) {
+                        const damage = this.hyperChargeActive ? 75 : 50;
+                        minion.health -= damage;
+
+                        // Update minion health bar
+                        if (minion.updateHealthBar) {
+                            minion.updateHealthBar();
+                        }
+
+                        // Damage text for minion
+                        const damageText = this.add.text(minion.x, minion.y - 30, `-${damage}`, {
+                            fontSize: '24px',
+                            fill: '#00ffff'
+                        }).setOrigin(0.5);
+
+                        this.tweens.add({
+                            targets: damageText,
+                            y: damageText.y - 50,
+                            alpha: 0,
+                            duration: 500,
+                            onComplete: () => damageText.destroy()
+                        });
+                    }
+                });
+            });
+        } else if (this.playerClass === 'rogue') {
             // Initialize properties for rogue's super axe
             this.isPerformingSpecial = true;
 
@@ -1464,7 +1688,74 @@ class BossGame extends Phaser.Scene {
         });
     }
     healingSuper() {
-        if (this.playerClass === 'rogue') {
+        if (this.playerClass === 'mage' && this.mana >= 30) {
+            // Arcane Shield
+            this.mana -= 30;
+            this.defenseBoostActive = true;
+
+            // Create shield effect
+            const shield = this.add.circle(this.aarav.x, this.aarav.y, 50, 0x0000ff, 0.3);
+
+            // Pulse animation
+            this.tweens.add({
+                targets: shield,
+                scale: 1.2,
+                alpha: 0.5,
+                duration: 1000,
+                yoyo: true,
+                repeat: 4,
+                onComplete: () => shield.destroy()
+            });
+
+            // Update shield position
+            const updateShield = () => {
+                if (shield.active) {
+                    shield.setPosition(this.aarav.x, this.aarav.y);
+                }
+            };
+
+            this.events.on('update', updateShield);
+
+            // Shield duration
+            this.time.delayedCall(5000, () => {
+                this.defenseBoostActive = false;
+                this.events.off('update', updateShield);
+                if (shield.active) {
+                    shield.destroy();
+                }
+            });
+
+            // Add damage reflection
+            const reflectHandler = (player, projectile) => {
+                if (projectile.active) {
+                    // Reflect projectile back at boss
+                    const angle = Phaser.Math.Angle.Between(
+                        player.x, player.y,
+                        this.ruhaan.x, this.ruhaan.y
+                    );
+
+                    const reflectedBall = this.add.circle(player.x, player.y, 15, 0x0000ff);
+                    this.bullets.add(reflectedBall);
+                    reflectedBall.body.setVelocity(
+                        Math.cos(angle) * 400,
+                        Math.sin(angle) * 400
+                    );
+                    reflectedBall.isSpecialBeam = true;
+
+                    // Destroy original projectile
+                    projectile.destroy();
+                }
+            };
+
+            // Add temporary overlap for reflection
+            const overlap = this.physics.add.overlap(this.aarav, this.bossBalls, reflectHandler, null, this);
+
+            // Remove overlap after shield duration
+            this.time.delayedCall(5000, () => {
+                overlap.destroy();
+            });
+
+        } else if (this.playerClass === 'rogue') {
             // Rogue's stun attack
             this.stunAttack();
         } else {
