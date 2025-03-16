@@ -21,8 +21,12 @@ class StartScreen extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         playButton.on('pointerdown', () => {
+            console.log('Play button clicked'); // Debug log
             this.scene.start('ClassSelection');
         });
+        // Debug helper
+        console.log('StartScreen created');
+        console.log('Available scenes:', this.scene.manager.scenes.map(scene => scene.scene.key));
     }
 }
 class ClassSelection extends Phaser.Scene {
@@ -2603,7 +2607,7 @@ const config = {
             debug: false
         }
     },
-    scene: [StartScreen, BossGame]
+    scene: [StartScreen, ClassSelection, BossGame]
 };
 
 // Create the game instance
