@@ -10,8 +10,22 @@ class StartScreen extends Phaser.Scene {
             fontSize: '84px',
             fill: '#fff'
         }).setOrigin(0.5);
+
+        // Controls text
+        const controlsText = this.add.text(800, 400,
+            'Controls:\n' +
+            'Arrow Keys: Move and Double Jump\n' +
+            'SPACE: Basic Attack\n' +
+            'Q: Special Attack (when charged)\n' +
+            'E: Defense/Healing (when charged)\n' +
+            'R: Hypercharge (when purple bar is full)', {
+                fontSize: '24px',
+                fill: '#fff',
+                align: 'center'
+            }).setOrigin(0.5);
+
         // Play button
-        const playButton = this.add.text(800, 500, 'Start Game', {
+        const playButton = this.add.text(800, 600, 'Start Game', {
                 fontSize: '48px',
                 fill: '#fff'
             }).setOrigin(0.5)
@@ -204,8 +218,6 @@ class BossGame extends Phaser.Scene {
                 fontSize: '20px',
                 fill: '#00ffff'
             }).setDepth(100);
-            // Add shield elements to UI container
-            this.uiContainer.add([shieldBarBg, shieldBarFrame, this.shieldBar, shieldText]);
         } else {
             this.aaravHealth = 450; // Increased Saiyan health
         }
@@ -1239,19 +1251,21 @@ class BossGame extends Phaser.Scene {
             textColor = '#ffa500';
         }
 
-        damageText.setStyle({
+        const newDamageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${Math.round(damage)}`, {
+            fontSize: '28px',
+            fontStyle: 'bold',
+            stroke: '#000000',
+            strokeThickness: 4,
             fill: textColor
-        });
-        damageText.setText(`-${Math.round(damage)}`);
-
+        }).setOrigin(0.5);
         // Animate the damage text
         this.tweens.add({
-            targets: damageText,
-            y: damageText.y - 80,
+            targets: newDamageText,
+            y: newDamageText.y - 80,
             alpha: 0,
             duration: 800,
             ease: 'Power1',
-            onComplete: () => damageText.destroy()
+            onComplete: () => newDamageText.destroy()
         });
 
         // Rogue charges faster
