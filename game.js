@@ -159,10 +159,13 @@ class BossGame extends Phaser.Scene {
             this.aaravHealth = 200;
             this.mana = 100;
             this.maxMana = 100;
-            this.manaRegenRate = 1; // Mana per second
+            this.manaRegenRate = 2; // Increased mana regen
             this.lastFireTick = 0;
-            this.fireTickRate = 100; // Fire rate in milliseconds
-            this.fireManaCost = 2; // Mana cost per fire tick
+            this.fireTickRate = 50; // Faster fire rate
+            this.fireManaCost = 1; // Reduced mana cost
+            this.shieldAmount = 0; // Initialize shield
+            this.maxShieldAmount = 100; // Maximum shield capacity
+            this.shieldDecayRate = 0.5; // Shield decay per second
         } else {
             this.aaravHealth = 450; // Increased Saiyan health
         }
@@ -408,15 +411,18 @@ class BossGame extends Phaser.Scene {
 
     update(time, delta) {
         // Basic validation
+        const deltaSeconds = delta / 1000;
+        // Mage shield decay
+        if (this.playerClass === 'mage' && this.shieldAmount > 0) {
+            this.shieldAmount = Math.max(0, this.shieldAmount - (this.shieldDecayRate * deltaSeconds));
+        }
         if (!this.aarav || !this.ruhaan) {
             return;
         }
-
         // Reset spell weaving if too much time has passed since last cast
         if (this.playerClass === 'mage' && time - this.lastSpellCastTime > this.spellWeavingTimeout) {
             this.spellWeavingMultiplier = 1.0;
         }
-
         // Update minion health bars
         this.minions.getChildren().forEach(minion => {
             if (minion.updateHealthBar) {
@@ -425,7 +431,6 @@ class BossGame extends Phaser.Scene {
         });
         // Ensure physics world is active and running
         this.physics.world.resume();
-        const deltaSeconds = delta / 1000;
 
         // Mage mana regeneration
         if (this.playerClass === 'mage') {
@@ -1015,6 +1020,41 @@ class BossGame extends Phaser.Scene {
     hitBoss(ruhaan, bullet) {
         bullet.destroy();
         let damage = 0;
+
+        // Calculate damage based on attack type
+        if (bullet.isRogueSpecial) {
+            damage = bullet.isSpecialBeam ? 150 : 40;
+        } else if (bullet.isSpecialBeam) {
+            damage = this.playerClass === 'rogue' ? 75 : 50;
+        } else if (bullet.isRogueBasicAttack) {
+            damage = 40;
+        } else if (bullet.isFire) {
+            damage = 12; // Increased mage's fire damage
+        } else {
+            damage = this.playerClass === 'rogue' ? 40 : 15;
+        }
+
+        // Add shield for mage when dealing damage
+        if (this.playerClass === 'mage') {
+            const shieldGain = damage * 0.5; // 50% of damage dealt converted to shield
+            this.shieldAmount = Math.min(this.maxShieldAmount, this.shieldAmount + shieldGain);
+
+            // Visual feedback for shield gain
+            if (shieldGain > 0) {
+                const shieldText = this.add.text(this.aarav.x, this.aarav.y - 50, `+${Math.round(shieldGain)} Shield`, {
+                    fontSize: '20px',
+                    fill: '#00ffff'
+                }).setOrigin(0.5);
+
+                this.tweens.add({
+                    targets: shieldText,
+                    y: shieldText.y - 40,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => shieldText.destroy()
+                });
+            }
+        }
         // Special handling for Rogue's special attack
         if (bullet.isRogueSpecial) {
             damage = bullet.isSpecialBeam ? 150 : 40; // One-time high damage
@@ -1096,7 +1136,30 @@ class BossGame extends Phaser.Scene {
     }
 
     hitPlayer(aarav, projectile) {
-        let damage = this.hyperChargeActive ? 12 : 18; // Increased base damage
+        let damage = this.hyperChargeActive ? 12 : 18;
+
+        // Shield damage absorption for mage
+        if (this.playerClass === 'mage' && this.shieldAmount > 0) {
+            const absorbedDamage = Math.min(this.shieldAmount, damage);
+            this.shieldAmount -= absorbedDamage;
+            damage -= absorbedDamage;
+
+            // Visual feedback for shield absorption
+            if (absorbedDamage > 0) {
+                const shieldText = this.add.text(aarav.x, aarav.y - 70, `Shield -${Math.round(absorbedDamage)}`, {
+                    fontSize: '24px',
+                    fill: '#00ffff'
+                }).setOrigin(0.5);
+
+                this.tweens.add({
+                    targets: shieldText,
+                    y: shieldText.y - 50,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => shieldText.destroy()
+                });
+            }
+        }
 
         // Create damage counter text
         const damageText = this.add.text(aarav.x, aarav.y - 50, '', {
