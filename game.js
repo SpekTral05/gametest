@@ -494,6 +494,14 @@ class BossGame extends Phaser.Scene {
     update(time, delta) {
         // Basic validation
         const deltaSeconds = delta / 1000;
+
+        // Mage shield decay (5 per second)
+        if (this.playerClass === 'mage' && this.shieldAmount > 0) {
+            this.shieldAmount = Math.max(0, this.shieldAmount - (5 * deltaSeconds));
+            if (this.shieldBar) {
+                this.shieldBar.width = (this.shieldAmount / this.maxShieldAmount) * 400;
+            }
+        }
         // Mage shield decay and update
         if (this.playerClass === 'mage') {
             if (this.shieldAmount > 0) {
@@ -1480,8 +1488,40 @@ class BossGame extends Phaser.Scene {
     }
     hitByMinion(player, minion) {
         if (!this.hitCooldown) {
-            const damage = 10;
-            this.aaravHealth -= damage;
+            let damage = 10;
+
+            // Handle mage shield damage absorption
+            if (this.playerClass === 'mage' && this.shieldAmount > 0) {
+                const absorbedDamage = Math.min(this.shieldAmount, damage);
+                this.shieldAmount -= absorbedDamage;
+                damage -= absorbedDamage;
+
+                // Update shield bar
+                if (this.shieldBar) {
+                    this.shieldBar.width = (this.shieldAmount / this.maxShieldAmount) * 400;
+                }
+
+                // Visual feedback for shield absorption
+                if (absorbedDamage > 0) {
+                    const shieldText = this.add.text(player.x, player.y - 70, `Shield -${Math.round(absorbedDamage)}`, {
+                        fontSize: '24px',
+                        fill: '#00ffff'
+                    }).setOrigin(0.5);
+
+                    this.tweens.add({
+                        targets: shieldText,
+                        y: shieldText.y - 50,
+                        alpha: 0,
+                        duration: 500,
+                        onComplete: () => shieldText.destroy()
+                    });
+                }
+            }
+
+            // Only apply remaining damage to health
+            if (damage > 0) {
+                this.aaravHealth -= damage;
+            }
 
             // Visual feedback
             const damageText = this.add.text(player.x, player.y - 50, `-${damage}`, {
@@ -2624,6 +2664,13 @@ class BossGame extends Phaser.Scene {
         });
     }
     gameOver() {
+        // Clean up shield
+        if (this.playerClass === 'mage') {
+            this.shieldAmount = 0;
+            if (this.shieldBar) {
+                this.shieldBar.width = 0;
+            }
+        }
         // Disable all physics and input
         this.physics.pause();
         this.input.keyboard.enabled = false;
