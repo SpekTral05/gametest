@@ -193,20 +193,19 @@ class BossGame extends Phaser.Scene {
             this.maxShieldAmount = 100; // Maximum shield capacity
             this.shieldDecayRate = 0.5; // Shield decay per second
             this.shieldGainRate = 0.75; // 75% of damage dealt converted to shield
-
-            // Create shield bar
+            // Create shield bar as part of UI
             const shieldBarBg = this.add.rectangle(50, 285, 400, 25, 0x000000, 0.7);
             const shieldBarFrame = this.add.rectangle(50, 285, 400, 25, 0xffffff, 1);
             this.shieldBar = this.add.rectangle(50, 285, 0, 25, 0x00ffff);
-
-            shieldBarBg.setOrigin(0, 0);
-            shieldBarFrame.setOrigin(0, 0).setStrokeStyle(2, 0xffffff);
-            this.shieldBar.setOrigin(0, 0);
-
+            shieldBarBg.setOrigin(0, 0).setDepth(100);
+            shieldBarFrame.setOrigin(0, 0).setStrokeStyle(2, 0xffffff).setDepth(100);
+            this.shieldBar.setOrigin(0, 0).setDepth(100);
             const shieldText = this.add.text(60, 265, 'SHIELD', {
                 fontSize: '20px',
                 fill: '#00ffff'
-            });
+            }).setDepth(100);
+            // Add shield elements to UI container
+            this.uiContainer.add([shieldBarBg, shieldBarFrame, this.shieldBar, shieldText]);
         } else {
             this.aaravHealth = 450; // Increased Saiyan health
         }
@@ -254,21 +253,16 @@ class BossGame extends Phaser.Scene {
         this.bouncePads = this.physics.add.staticGroup();
 
         // Create more varied platform layout
-        // Ground platforms
-        this.platforms.create(300, 980, 'platform').setScale(2, 0.5).refreshBody();
-        this.platforms.create(900, 980, 'platform').setScale(2, 0.5).refreshBody();
-        this.platforms.create(1400, 980, 'platform').setScale(2, 0.5).refreshBody();
-
-        // Mid-height platforms
-        this.platforms.create(200, 700, 'platform').setScale(1, 0.3).refreshBody();
-        this.platforms.create(600, 650, 'platform').setScale(1, 0.3).refreshBody();
-        this.platforms.create(1000, 600, 'platform').setScale(1, 0.3).refreshBody();
-        this.platforms.create(1400, 650, 'platform').setScale(1, 0.3).refreshBody();
-
-        // High platforms
-        this.platforms.create(400, 400, 'platform').setScale(0.8, 0.3).refreshBody();
-        this.platforms.create(800, 350, 'platform').setScale(0.8, 0.3).refreshBody();
-        this.platforms.create(1200, 400, 'platform').setScale(0.8, 0.3).refreshBody();
+        // Main ground platforms - fewer, wider platforms
+        this.platforms.create(400, 980, 'platform').setScale(3, 0.5).refreshBody();
+        this.platforms.create(1200, 980, 'platform').setScale(3, 0.5).refreshBody();
+        // Strategic mid-height platforms - reduced number
+        this.platforms.create(300, 650, 'platform').setScale(1.5, 0.3).refreshBody();
+        this.platforms.create(900, 600, 'platform').setScale(1.5, 0.3).refreshBody();
+        this.platforms.create(1500, 650, 'platform').setScale(1.5, 0.3).refreshBody();
+        // High platforms - only two for better movement flow
+        this.platforms.create(600, 350, 'platform').setScale(1.2, 0.3).refreshBody();
+        this.platforms.create(1200, 350, 'platform').setScale(1.2, 0.3).refreshBody();
 
         // Add more bounce pads
         const bouncePositions = [{
@@ -488,9 +482,15 @@ class BossGame extends Phaser.Scene {
     update(time, delta) {
         // Basic validation
         const deltaSeconds = delta / 1000;
-        // Mage shield decay
-        if (this.playerClass === 'mage' && this.shieldAmount > 0) {
-            this.shieldAmount = Math.max(0, this.shieldAmount - (this.shieldDecayRate * deltaSeconds));
+        // Mage shield decay and update
+        if (this.playerClass === 'mage') {
+            if (this.shieldAmount > 0) {
+                this.shieldAmount = Math.max(0, this.shieldAmount - (this.shieldDecayRate * deltaSeconds));
+            }
+            // Update shield bar width
+            if (this.shieldBar) {
+                this.shieldBar.width = (this.shieldAmount / this.maxShieldAmount) * 400;
+            }
         }
         if (!this.aarav || !this.ruhaan) {
             return;
@@ -883,6 +883,11 @@ class BossGame extends Phaser.Scene {
         // Move towards player
         if (distance > 200) {
             this.ruhaan.setVelocityX(dx > 0 ? 150 : -150);
+
+            // Jump if stuck on ground level
+            if (this.ruhaan.y > 900 && this.ruhaan.body.touching.down) {
+                this.ruhaan.setVelocityY(-600);
+            }
         } else {
             this.ruhaan.setVelocityX(0);
         }
@@ -1111,25 +1116,34 @@ class BossGame extends Phaser.Scene {
         }
     }
     hitBoss(ruhaan, bullet) {
-        bullet.destroy();
-        let damage = 0;
+        // Initialize or reset damage accumulator
+        if (!this.damageAccumulator) {
+            this.damageAccumulator = 0;
+            this.lastDamageTime = 0;
+        }
 
+        let damage = 0;
         // Calculate damage based on attack type
         if (bullet.isRogueSpecial) {
-            damage = bullet.isSpecialBeam ? 150 : 40;
+            damage = bullet.isSpecialBeam ? 175 : 60;
         } else if (bullet.isSpecialBeam) {
-            damage = this.playerClass === 'rogue' ? 75 : 50;
+            damage = this.playerClass === 'rogue' ? 100 : 50;
         } else if (bullet.isRogueBasicAttack) {
-            damage = 40;
+            damage = this.hyperChargeActive ? 75 : 60;
         } else if (bullet.isFire) {
-            damage = 12; // Increased mage's fire damage
+            damage = 12;
         } else {
             damage = this.playerClass === 'rogue' ? 40 : 15;
         }
+        // Accumulate damage
+        this.damageAccumulator += damage;
+
+        // Destroy the bullet
+        bullet.destroy();
 
         // Add shield for mage when dealing damage
         if (this.playerClass === 'mage') {
-            const shieldGain = damage * 0.5; // 50% of damage dealt converted to shield
+            const shieldGain = damage * 0.75; // 75% of damage dealt converted to shield
             this.shieldAmount = Math.min(this.maxShieldAmount, this.shieldAmount + shieldGain);
 
             // Visual feedback for shield gain
@@ -1162,13 +1176,31 @@ class BossGame extends Phaser.Scene {
                 damage = this.playerClass === 'rogue' ? 40 : 15;
             }
         }
-        // Create damage counter text
-        const damageText = this.add.text(ruhaan.x, ruhaan.y - 50, '', {
-            fontSize: '28px',
-            fontStyle: 'bold',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
+        // Show accumulated damage after a short delay
+        if (this.time.now > this.lastDamageTime + 50) { // 50ms window for damage accumulation
+            if (this.damageAccumulator > 0) {
+                // Create damage counter text
+                const damageText = this.add.text(ruhaan.x, ruhaan.y - 50, `-${Math.round(this.damageAccumulator)}`, {
+                    fontSize: '28px',
+                    fontStyle: 'bold',
+                    stroke: '#000000',
+                    strokeThickness: 4,
+                    fill: bullet.isSpecialBeam ? (this.hyperChargeActive ? '#800080' : '#00ffff') : '#ff0000'
+                }).setOrigin(0.5);
+                // Animate the damage text
+                this.tweens.add({
+                    targets: damageText,
+                    y: damageText.y - 80,
+                    alpha: 0,
+                    duration: 800,
+                    ease: 'Power1',
+                    onComplete: () => damageText.destroy()
+                });
+                // Reset accumulator
+                this.damageAccumulator = 0;
+                this.lastDamageTime = this.time.now;
+            }
+        }
 
         if (bullet.isSpecialBeam) {
             damage = this.playerClass === 'rogue' ? 75 : 50;
@@ -1185,7 +1217,19 @@ class BossGame extends Phaser.Scene {
             damage *= 1.5;
         }
 
+        // Apply vulnerability multiplier if boss is stunned
+        if (this.ruhaan.vulnerabilityMultiplier) {
+            damage *= this.ruhaan.vulnerabilityMultiplier;
+        }
         this.ruhhanHealth -= damage;
+
+        // Reset vulnerability multiplier when stun ends
+        if (this.ruhaan.isStunned && !this.vulnerabilityResetTimer) {
+            this.vulnerabilityResetTimer = this.time.delayedCall(this.stunDuration, () => {
+                this.ruhaan.vulnerabilityMultiplier = 1;
+                this.vulnerabilityResetTimer = null;
+            });
+        }
 
         // Set damage text color based on attack type
         let textColor = '#ff0000';
@@ -1450,6 +1494,26 @@ class BossGame extends Phaser.Scene {
         if (!minion.active || !bullet.active) return;
         bullet.destroy();
         let damage = 15; // Base damage
+
+        // Add shield gain for mage when hitting minions
+        if (this.playerClass === 'mage') {
+            const shieldGain = damage * 0.5; // 50% of minion damage converted to shield
+            this.shieldAmount = Math.min(this.maxShieldAmount, this.shieldAmount + shieldGain);
+
+            // Visual feedback for shield gain from minion hits
+            const shieldText = this.add.text(this.aarav.x, this.aarav.y - 50, `+${Math.round(shieldGain)} Shield`, {
+                fontSize: '20px',
+                fill: '#00ffff'
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+                targets: shieldText,
+                y: shieldText.y - 40,
+                alpha: 0,
+                duration: 500,
+                onComplete: () => shieldText.destroy()
+            });
+        }
         // Determine damage based on attack type and class
         if (bullet.isSpecialBeam) {
             damage = this.playerClass === 'rogue' ? 75 : 50;
@@ -1534,6 +1598,10 @@ class BossGame extends Phaser.Scene {
         }
     }
     specialAttack() {
+        // Early return if not enough special charge
+        if (this.specialAttackCharge < 10) return;
+
+        // Mage Lightning Storm Attack
         if (this.playerClass === 'mage' && this.mana >= 50) {
             // Enhanced Lightning Storm attack
             this.mana -= 50;
@@ -1732,26 +1800,21 @@ class BossGame extends Phaser.Scene {
                 });
             });
         } else if (this.playerClass === 'rogue') {
-            // Initialize properties for rogue's super axe
+            if (this.isPerformingSpecial) return; // Prevent multiple special attacks
+
             this.isPerformingSpecial = true;
             // Create and throw enhanced axe
             const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
             axe.setScale(0.4);
             axe.body.setAllowGravity(false);
             axe.isSpecialBeam = true;
-            axe.isRogueSpecial = true; // Mark as Rogue's special attack
-
+            axe.isRogueSpecial = true;
+            axe.hitEnemies = new Set(); // Track which enemies have been hit
             // Add collision with boss for super axe
             this.physics.add.overlap(axe, this.ruhaan, (axe, boss) => {
-                if (axe.active) {
-                    let damage;
-                    if (!axe.hasHitOnce) {
-                        damage = this.hyperChargeActive ? 150 : 100;
-                        axe.hasHitOnce = true;
-                    } else {
-                        // 50% damage on second hit
-                        damage = this.hyperChargeActive ? 75 : 50;
-                    }
+                if (axe.active && !axe.hitEnemies.has(boss)) {
+                    axe.hitEnemies.add(boss);
+                    const damage = this.hyperChargeActive ? 250 : 175; // Increased damage
 
                     this.ruhhanHealth -= damage;
 
@@ -1819,10 +1882,12 @@ class BossGame extends Phaser.Scene {
                     }
                 });
             });
-        } else {
+        } else if (this.playerClass === 'saiyan') {} else if (this.playerClass === 'saiyan') {
             // Initialize enhanced Ki Blast Wave properties for saiyan
             const waveRadius = 300;
             const chargeTime = 800;
+            const beamWidth = 40;
+            const beamLength = 800;
 
             // Charging effect
             const chargeEffect = this.add.circle(this.aarav.x, this.aarav.y, 30, 0xffff00, 0.6);
@@ -2307,12 +2372,32 @@ class BossGame extends Phaser.Scene {
     }
     stunAttack() {
         if (!this.ruhaan.isStunned) {
-            // Set stun flag
+            // Set stun flag and increase stun duration
             this.ruhaan.isStunned = true;
 
+            // Deal initial stun damage
+            const stunDamage = this.hyperChargeActive ? 75 : 50;
+            this.ruhhanHealth -= stunDamage;
+
+            // Show damage number
+            const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${stunDamage}`, {
+                fontSize: '32px',
+                fill: '#ffff00'
+            }).setOrigin(0.5);
+
+            this.tweens.add({
+                targets: damageText,
+                y: damageText.y - 80,
+                alpha: 0,
+                duration: 800,
+                onComplete: () => damageText.destroy()
+            });
             // Stop all current boss movements and attacks
             this.ruhaan.body.setVelocity(0, 0);
             this.ruhaan.body.moves = false;
+
+            // Make boss take increased damage while stunned
+            this.ruhaan.vulnerabilityMultiplier = this.hyperChargeActive ? 1.75 : 1.5;
 
             // Visual effects for stun
             this.ruhaan.setTint(0xFFFF00);
