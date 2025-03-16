@@ -166,6 +166,21 @@ class BossGame extends Phaser.Scene {
             this.shieldAmount = 0; // Initialize shield
             this.maxShieldAmount = 100; // Maximum shield capacity
             this.shieldDecayRate = 0.5; // Shield decay per second
+            this.shieldGainRate = 0.75; // 75% of damage dealt converted to shield
+
+            // Create shield bar
+            const shieldBarBg = this.add.rectangle(50, 285, 400, 25, 0x000000, 0.7);
+            const shieldBarFrame = this.add.rectangle(50, 285, 400, 25, 0xffffff, 1);
+            this.shieldBar = this.add.rectangle(50, 285, 0, 25, 0x00ffff);
+
+            shieldBarBg.setOrigin(0, 0);
+            shieldBarFrame.setOrigin(0, 0).setStrokeStyle(2, 0xffffff);
+            this.shieldBar.setOrigin(0, 0);
+
+            const shieldText = this.add.text(60, 265, 'SHIELD', {
+                fontSize: '20px',
+                fill: '#00ffff'
+            });
         } else {
             this.aaravHealth = 450; // Increased Saiyan health
         }
@@ -1454,8 +1469,8 @@ class BossGame extends Phaser.Scene {
 
             for (let i = 0; i < numStrikes; i++) {
                 this.time.delayedCall(i * strikeDelay, () => {
-                    // Random position near the boss
-                    const strikeX = this.ruhaan.x + Phaser.Math.Between(-200, 200);
+                    // Lightning always strikes near the boss with smaller random variation
+                    const strikeX = this.ruhaan.x + Phaser.Math.Between(-50, 50);
 
                     // Create main lightning bolt
                     const lightning = this.add.line(0, 0, strikeX, 0, strikeX, 1000, 0x00ffff);
@@ -1496,6 +1511,32 @@ class BossGame extends Phaser.Scene {
                     if (Phaser.Geom.Rectangle.Overlaps(strikeBounds, this.ruhaan.getBounds())) {
                         const damage = 30 * this.spellWeavingMultiplier;
                         this.ruhhanHealth -= damage;
+
+                        // Stun the boss temporarily
+                        if (!this.ruhaan.isStunned) {
+                            this.ruhaan.isStunned = true;
+                            this.ruhaan.setTint(0xFFFF00);
+
+                            // Visual feedback for stun
+                            const stunText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, '⚡Stunned!', {
+                                fontSize: '24px',
+                                fill: '#ffff00'
+                            }).setOrigin(0.5);
+
+                            this.tweens.add({
+                                targets: stunText,
+                                y: stunText.y - 30,
+                                alpha: 0,
+                                duration: 1000,
+                                onComplete: () => stunText.destroy()
+                            });
+
+                            // Remove stun after 1.5 seconds
+                            this.time.delayedCall(1500, () => {
+                                this.ruhaan.isStunned = false;
+                                this.ruhaan.clearTint();
+                            });
+                        }
 
                         // Chain lightning effect to nearby minions
                         this.minions.getChildren().forEach(minion => {
