@@ -10,13 +10,35 @@ class StartScreen extends Phaser.Scene {
             fontSize: '84px',
             fill: '#fff'
         }).setOrigin(0.5);
-        // Class selection text
-        this.add.text(800, 400, 'Select Your Class:', {
-            fontSize: '32px',
+        // Play button
+        const playButton = this.add.text(800, 500, 'Start Game', {
+                fontSize: '48px',
+                fill: '#fff'
+            }).setOrigin(0.5)
+            .setInteractive()
+            .setPadding(20)
+            .setStyle({
+                backgroundColor: '#111'
+            });
+        playButton.on('pointerdown', () => {
+            this.scene.start('ClassSelection');
+        });
+    }
+}
+class ClassSelection extends Phaser.Scene {
+    constructor() {
+        super({
+            key: 'ClassSelection'
+        });
+    }
+    create() {
+        // Title
+        this.add.text(800, 150, 'Choose Your Class', {
+            fontSize: '64px',
             fill: '#fff'
         }).setOrigin(0.5);
-        // Saiyan class button
-        const saiyanButton = this.add.text(400, 550, 'Saiyan\n\nHP: 450\nSpeed: 100%\nQ: Energy Beam\nE: Healing', {
+        // Saiyan class button with updated abilities
+        const saiyanButton = this.add.text(400, 400, 'Saiyan\n\nHP: 450\nSpeed: 100%\nQ: Ki Blast Wave\nE: Power Surge\nPassive: Ki Charge', {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -227,10 +249,45 @@ class BossGame extends Phaser.Scene {
         this.destructiblePlatforms = this.physics.add.staticGroup();
         this.bouncePads = this.physics.add.staticGroup();
 
-        // Create asymmetric ground platforms
-        this.platforms.create(300, 980, 'platform').setScale(3, 0.5).refreshBody();
+        // Create more varied platform layout
+        // Ground platforms
+        this.platforms.create(300, 980, 'platform').setScale(2, 0.5).refreshBody();
         this.platforms.create(900, 980, 'platform').setScale(2, 0.5).refreshBody();
-        this.platforms.create(1400, 980, 'platform').setScale(2.5, 0.5).refreshBody();
+        this.platforms.create(1400, 980, 'platform').setScale(2, 0.5).refreshBody();
+
+        // Mid-height platforms
+        this.platforms.create(200, 700, 'platform').setScale(1, 0.3).refreshBody();
+        this.platforms.create(600, 650, 'platform').setScale(1, 0.3).refreshBody();
+        this.platforms.create(1000, 600, 'platform').setScale(1, 0.3).refreshBody();
+        this.platforms.create(1400, 650, 'platform').setScale(1, 0.3).refreshBody();
+
+        // High platforms
+        this.platforms.create(400, 400, 'platform').setScale(0.8, 0.3).refreshBody();
+        this.platforms.create(800, 350, 'platform').setScale(0.8, 0.3).refreshBody();
+        this.platforms.create(1200, 400, 'platform').setScale(0.8, 0.3).refreshBody();
+
+        // Add more bounce pads
+        const bouncePositions = [{
+            x: 150,
+            y: 900
+        }, {
+            x: 750,
+            y: 900
+        }, {
+            x: 1450,
+            y: 900
+        }, {
+            x: 300,
+            y: 600
+        }, {
+            x: 1100,
+            y: 600
+        }];
+
+        bouncePositions.forEach(pos => {
+            const bounce = this.add.rectangle(pos.x, pos.y, 80, 20, 0xffff00);
+            this.bouncePads.add(bounce);
+        });
         // Create varied moving platforms
         const movingPlat1 = this.add.rectangle(200, 650, 150, 20, 0x00ff00);
         const movingPlat2 = this.add.rectangle(1100, 750, 180, 20, 0x00ff00);
@@ -624,12 +681,29 @@ class BossGame extends Phaser.Scene {
                 this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.05);
             }
         } else if (this.playerClass === 'saiyan') {
+            // Enhanced Saiyan basic attack
             const bulletSpeed = 400;
             const bulletOffset = this.facingRight ? 25 : -25;
-            const bullet = this.add.rectangle(this.aarav.x + bulletOffset, this.aarav.y, 10, 5, 0xffff00);
+
+            // Create main Ki blast
+            const bullet = this.add.circle(this.aarav.x + bulletOffset, this.aarav.y, 8, 0xffff00);
             this.bullets.add(bullet);
             bullet.body.setVelocityX(this.facingRight ? bulletSpeed : -bulletSpeed);
             bullet.body.setAllowGravity(false);
+
+            // Add smaller spread shots for crowd control
+            const spreadAngles = [-15, 15]; // Degrees
+            spreadAngles.forEach(angle => {
+                const spreadBullet = this.add.circle(this.aarav.x + bulletOffset, this.aarav.y, 5, 0xffff00);
+                this.bullets.add(spreadBullet);
+
+                const radians = angle * (Math.PI / 180);
+                spreadBullet.body.setVelocity(
+                    (this.facingRight ? bulletSpeed : -bulletSpeed) * Math.cos(radians),
+                    bulletSpeed * Math.sin(radians)
+                );
+                spreadBullet.body.setAllowGravity(false);
+            });
         } else if (this.playerClass === 'rogue' && !this.activeAxe && this.time.now > this.lastShot + 1200) {
             // Create and throw axe
             const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
@@ -1742,10 +1816,67 @@ class BossGame extends Phaser.Scene {
                 });
             });
         } else {
-            // Initialize beam properties for saiyan
-            const beamWidth = 40;
-            const beamLength = 800;
-            const chargeTime = 500;
+            // Initialize enhanced Ki Blast Wave properties for saiyan
+            const waveRadius = 300;
+            const chargeTime = 800;
+
+            // Charging effect
+            const chargeEffect = this.add.circle(this.aarav.x, this.aarav.y, 30, 0xffff00, 0.6);
+            this.tweens.add({
+                targets: chargeEffect,
+                scale: 2,
+                alpha: 0.8,
+                duration: chargeTime,
+                yoyo: true,
+                onComplete: () => chargeEffect.destroy()
+            });
+            // After charging, release the Ki Blast Wave
+            this.time.delayedCall(chargeTime, () => {
+                // Create the wave effect
+                const wave = this.add.circle(this.aarav.x, this.aarav.y, waveRadius, 0xffff00, 0.4);
+                this.physics.add.existing(wave, false);
+
+                // Expand and fade out wave
+                this.tweens.add({
+                    targets: wave,
+                    scale: 1.5,
+                    alpha: 0,
+                    duration: 500,
+                    onComplete: () => wave.destroy()
+                });
+                // Damage all enemies within radius
+                const waveBounds = new Phaser.Geom.Circle(this.aarav.x, this.aarav.y, waveRadius);
+
+                // Damage boss if in range
+                if (Phaser.Geom.Circle.Contains(waveBounds, this.ruhaan.x, this.ruhaan.y)) {
+                    const damage = this.hyperChargeActive ? 120 : 80;
+                    this.ruhhanHealth -= damage;
+
+                    // Visual feedback
+                    this.showDamageNumber(this.ruhaan.x, this.ruhaan.y, damage, '#ffff00');
+                }
+                // Damage and knock back minions
+                this.minions.getChildren().forEach(minion => {
+                    if (Phaser.Geom.Circle.Contains(waveBounds, minion.x, minion.y)) {
+                        const damage = this.hyperChargeActive ? 60 : 40;
+                        minion.health -= damage;
+
+                        // Knock back effect
+                        const angle = Phaser.Math.Angle.Between(this.aarav.x, this.aarav.y, minion.x, minion.y);
+                        minion.body.setVelocity(
+                            Math.cos(angle) * 400,
+                            Math.sin(angle) * 400
+                        );
+
+                        // Visual feedback
+                        this.showDamageNumber(minion.x, minion.y, damage, '#ffff00');
+
+                        if (minion.updateHealthBar) {
+                            minion.updateHealthBar();
+                        }
+                    }
+                });
+            });
             this.isPerformingSpecial = true;
 
             // Create charging effect
