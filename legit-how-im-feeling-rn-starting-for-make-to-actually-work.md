@@ -1,5 +1,7 @@
 ---
-permalink: /bruh/
+layout: page
+title: crashout
+permalink: /bruh
 ---
 
 
