@@ -40,7 +40,7 @@ default: server
 			echo "Server started in $$COUNTER seconds"; \
 			break; \
 		fi; \
-		if [ $$COUNTER -eq 60 ]; then \
+		if [ $$COUNTER -eq 1000 ]; then \
 			echo "Server timed out after $$COUNTER seconds."; \
 			echo "Review errors from $(LOG_FILE)."; \
 			cat $(LOG_FILE); \
