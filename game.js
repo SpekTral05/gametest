@@ -199,10 +199,10 @@ class BossGame extends Phaser.Scene {
             this.aaravHealth = 200;
             this.mana = 100;
             this.maxMana = 100;
-            this.manaRegenRate = 2; // Increased mana regen
+            this.manaRegenRate = 0.5; // Reduced mana regen
             this.lastFireTick = 0;
-            this.fireTickRate = 50; // Faster fire rate
-            this.fireManaCost = 1; // Reduced mana cost
+            this.fireTickRate = 16; // Much faster fire rate (approximately 60fps)
+            this.fireManaCost = 0.5; // Reduced mana cost for faster attacks
             this.shieldAmount = 0; // Initialize shield
             this.maxShieldAmount = 100; // Maximum shield capacity
             this.shieldDecayRate = 0.5; // Shield decay per second
@@ -705,29 +705,41 @@ class BossGame extends Phaser.Scene {
                 this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.05);
             }
         } else if (this.playerClass === 'saiyan') {
-            // Enhanced Saiyan basic attack
-            const bulletSpeed = 400;
-            const bulletOffset = this.facingRight ? 25 : -25;
-
-            // Create main Ki blast
-            const bullet = this.add.circle(this.aarav.x + bulletOffset, this.aarav.y, 8, 0xffff00);
-            this.bullets.add(bullet);
-            bullet.body.setVelocityX(this.facingRight ? bulletSpeed : -bulletSpeed);
-            bullet.body.setAllowGravity(false);
-
-            // Add smaller spread shots for crowd control
-            const spreadAngles = [-15, 15]; // Degrees
-            spreadAngles.forEach(angle => {
-                const spreadBullet = this.add.circle(this.aarav.x + bulletOffset, this.aarav.y, 5, 0xffff00);
-                this.bullets.add(spreadBullet);
-
-                const radians = angle * (Math.PI / 180);
-                spreadBullet.body.setVelocity(
-                    (this.facingRight ? bulletSpeed : -bulletSpeed) * Math.cos(radians),
-                    bulletSpeed * Math.sin(radians)
-                );
-                spreadBullet.body.setAllowGravity(false);
-            });
+            if (this.time.now > this.lastShot + 250) { // Add rate limiting
+                // Enhanced Saiyan basic attack
+                const bulletSpeed = 400;
+                const bulletOffset = this.facingRight ? 25 : -25;
+                // Create main Ki blast
+                const bullet = this.add.circle(this.aarav.x + bulletOffset, this.aarav.y, 8, 0xffff00);
+                this.bullets.add(bullet);
+                bullet.body.setVelocityX(this.facingRight ? bulletSpeed : -bulletSpeed);
+                bullet.body.setAllowGravity(false);
+                // Limited spread shots
+                const spreadAngles = [-15, 15]; // Degrees
+                spreadAngles.forEach(angle => {
+                    const spreadBullet = this.add.circle(this.aarav.x + bulletOffset, this.aarav.y, 5, 0xffff00);
+                    this.bullets.add(spreadBullet);
+                    const radians = angle * (Math.PI / 180);
+                    spreadBullet.body.setVelocity(
+                        (this.facingRight ? bulletSpeed : -bulletSpeed) * Math.cos(radians),
+                        bulletSpeed * Math.sin(radians)
+                    );
+                    spreadBullet.body.setAllowGravity(false);
+                    // Clean up bullets after 2 seconds if they haven't hit anything
+                    this.time.delayedCall(2000, () => {
+                        if (spreadBullet.active) {
+                            spreadBullet.destroy();
+                        }
+                    });
+                });
+                // Clean up main bullet after 2 seconds
+                this.time.delayedCall(2000, () => {
+                    if (bullet.active) {
+                        bullet.destroy();
+                    }
+                });
+                this.lastShot = this.time.now;
+            }
         } else if (this.playerClass === 'rogue' && !this.activeAxe && this.time.now > this.lastShot + 1200) {
             // Create and throw axe
             const axe = this.physics.add.sprite(this.aarav.x, this.aarav.y, 'axe');
@@ -1191,7 +1203,7 @@ class BossGame extends Phaser.Scene {
             } else if (bullet.isRogueBasicAttack) {
                 damage = 40;
             } else if (bullet.isFire) {
-                damage = 8; // Mage's fire damage
+                damage = 3; // Reduced mage's fire damage
             } else {
                 damage = this.playerClass === 'rogue' ? 40 : 15;
             }
