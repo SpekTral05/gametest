@@ -48,6 +48,35 @@ class ClassSelection extends Phaser.Scene {
         super({
             key: 'ClassSelection'
         });
+        this.progress = {
+            saiyan: {
+                level: 1,
+                xp: 0,
+                nextLevelXp: 100
+            },
+            rogue: {
+                level: 1,
+                xp: 0,
+                nextLevelXp: 100
+            },
+            mage: {
+                level: 1,
+                xp: 0,
+                nextLevelXp: 100
+            }
+        };
+    }
+    init() {
+        // Load saved progress
+        const savedProgress = localStorage.getItem('gameProgress');
+        if (savedProgress) {
+            this.progress = JSON.parse(savedProgress);
+        }
+    }
+    constructor() {
+        super({
+            key: 'ClassSelection'
+        });
     }
     create() {
         // Title
@@ -56,7 +85,7 @@ class ClassSelection extends Phaser.Scene {
             fill: '#fff'
         }).setOrigin(0.5);
         // Saiyan class button with updated abilities
-        const saiyanButton = this.add.text(400, 400, 'Saiyan\n\nHP: 450\nSpeed: 100%\nQ: Ki Blast Wave\nE: Power Surge\nPassive: Ki Charge', {
+        const saiyanButton = this.add.text(400, 400, `Saiyan (Level ${this.progress.saiyan.level})\n\nHP: ${450 + (this.progress.saiyan.level - 1) * 25}\nSpeed: ${100 + (this.progress.saiyan.level - 1) * 2}%\nQ: Ki Blast Wave\nE: Power Surge\nPassive: Ki Charge\nXP: ${this.progress.saiyan.xp}/${this.progress.saiyan.nextLevelXp}`, {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -67,7 +96,7 @@ class ClassSelection extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         // Rogue class button
-        const rogueButton = this.add.text(800, 550, 'Rogue\n\nHP: 500\nSpeed: 85%\nQ: Throwing Axe\nE: Stun Attack\nPassive: 3 HP/s Regen while moving', {
+        const rogueButton = this.add.text(800, 550, `Rogue (Level ${this.progress.rogue.level})\n\nHP: ${500 + (this.progress.rogue.level - 1) * 30}\nSpeed: ${85 + (this.progress.rogue.level - 1) * 2}%\nQ: Throwing Axe\nE: Stun Attack\nPassive: ${3 + (this.progress.rogue.level - 1) * 0.2} HP/s Regen while moving\nXP: ${this.progress.rogue.xp}/${this.progress.rogue.nextLevelXp}`, {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -78,7 +107,7 @@ class ClassSelection extends Phaser.Scene {
                 backgroundColor: '#111'
             });
         // Mage class button
-        const mageButton = this.add.text(1200, 550, 'Mage\n\nHP: 200\nSpeed: 75%\nQ: Lightning Storm\nE: Arcane Shield\nPassive: Mana Regeneration', {
+        const mageButton = this.add.text(1200, 550, `Mage (Level ${this.progress.mage.level})\n\nHP: ${200 + (this.progress.mage.level - 1) * 20}\nSpeed: ${75 + (this.progress.mage.level - 1) * 2}%\nQ: Lightning Storm\nE: Arcane Shield\nPassive: Mana Regeneration\nXP: ${this.progress.mage.xp}/${this.progress.mage.nextLevelXp}`, {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
@@ -142,7 +171,8 @@ class ClassSelection extends Phaser.Scene {
             this.scene.stop('StartScreen');
             this.scene.start('BossGame', {
                 firstStart: true,
-                playerClass: selectedClass
+                playerClass: selectedClass,
+                progress: this.progress[selectedClass]
             });
         });
     }
@@ -154,7 +184,13 @@ class BossGame extends Phaser.Scene {
         });
     }
     init(data) {
-        // Initialize game variables
+        // Initialize game variables and load progress
+        this.classProgress = data.progress || {
+            level: 1,
+            xp: 0,
+            nextLevelXp: 100
+        };
+        this.playerClass = data.playerClass || 'saiyan';
         this.spellWeavingMultiplier = 1.0;
         this.lastSpellCastTime = 0;
         this.spellWeavingTimeout = 2000; // Reset after 2 seconds
@@ -2676,6 +2712,47 @@ class BossGame extends Phaser.Scene {
         });
     }
     gameOver() {
+        // Award XP and save progress
+        if (this.ruhhanHealth <= 0) {
+            // Award XP for winning
+            const xpGained = 50;
+            this.classProgress.xp += xpGained;
+
+            // Check for level up
+            while (this.classProgress.xp >= this.classProgress.nextLevelXp) {
+                this.classProgress.level++;
+                this.classProgress.xp -= this.classProgress.nextLevelXp;
+                this.classProgress.nextLevelXp = Math.floor(this.classProgress.nextLevelXp * 1.5);
+
+                // Show level up message
+                this.add.text(800, 300, `Level Up! ${this.playerClass} is now level ${this.classProgress.level}!`, {
+                    fontSize: '48px',
+                    fill: '#ffff00'
+                }).setOrigin(0.5);
+            }
+            // Save progress to localStorage
+            const savedProgress = localStorage.getItem('gameProgress');
+            const allProgress = savedProgress ? JSON.parse(savedProgress) : {
+                saiyan: {
+                    level: 1,
+                    xp: 0,
+                    nextLevelXp: 100
+                },
+                rogue: {
+                    level: 1,
+                    xp: 0,
+                    nextLevelXp: 100
+                },
+                mage: {
+                    level: 1,
+                    xp: 0,
+                    nextLevelXp: 100
+                }
+            };
+
+            allProgress[this.playerClass] = this.classProgress;
+            localStorage.setItem('gameProgress', JSON.stringify(allProgress));
+        }
         // Clean up shield
         if (this.playerClass === 'mage') {
             this.shieldAmount = 0;
