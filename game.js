@@ -219,7 +219,7 @@ class BossGame extends Phaser.Scene {
                 fill: '#00ffff'
             }).setDepth(100);
         } else {
-            this.aaravHealth = 450; // Increased Saiyan health
+            this.aaravHealth = 250; // Reduced Saiyan health
         }
         this.maxHealth = this.aaravHealth;
         this.ruhhanHealth = 1500; // Buffed boss health
@@ -227,9 +227,6 @@ class BossGame extends Phaser.Scene {
         this.lastBossAttack = 0;
         this.specialAttackCharge = 0; // Counter for special attack
         this.firstStart = true; // Track if it's the first time starting
-        this.aaravHealth = PLAYER_HEALTH;
-        this.ruhhanHealth = BOSS_HEALTH;
-        this.stunDuration = STUN_DURATION;
     }
     preload() {
         // Load background music with correct URL
@@ -262,7 +259,10 @@ class BossGame extends Phaser.Scene {
 
         // Create static group for platforms
         // Initialize platform groups
-        this.createPlatforms();
+        this.platforms = this.physics.add.staticGroup();
+        this.movingPlatforms = this.physics.add.group();
+        this.destructiblePlatforms = this.physics.add.staticGroup();
+        this.bouncePads = this.physics.add.staticGroup();
 
         // Create more varied platform layout
         // Main ground platforms - fewer, wider platforms
@@ -400,8 +400,13 @@ class BossGame extends Phaser.Scene {
         this.uiContainer = this.add.container(0, 0);
 
         // Aarav's health bar
-        const aaravHealthBar = this.createHealthBar(50, 50, 400, 40, 0x00ff00);
-        this.aaravHealthBar = aaravHealthBar.bar;
+        const aaravHealthBg = this.add.rectangle(50, 50, 400, 40, 0x000000, 0.7);
+        const aaravHealthFrame = this.add.rectangle(50, 50, 400, 40, 0xffffff, 1);
+        this.aaravHealthBar = this.add.rectangle(50, 50, 400, 40, 0x00ff00);
+
+        aaravHealthBg.setOrigin(0, 0);
+        aaravHealthFrame.setOrigin(0, 0).setStrokeStyle(2, 0xffffff);
+        this.aaravHealthBar.setOrigin(0, 0);
 
         // Add "AARAV" text
         const aaravText = this.add.text(60, 20, 'AARAV', {
@@ -455,7 +460,7 @@ class BossGame extends Phaser.Scene {
 
         // Add all UI elements to the container
         this.uiContainer.add([
-            aaravHealthBar.bg, aaravHealthBar.frame, this.aaravHealthBar, aaravText,
+            aaravHealthBg, aaravHealthFrame, this.aaravHealthBar, aaravText,
             ruhhanHealthBg, ruhhanHealthFrame, this.ruhhanHealthBar, ruhhanText,
             chargeBg, chargeFrame, this.chargeBarFill, superText,
             hyperBg, hyperFrame, this.hyperChargeFill, hyperText
@@ -1281,8 +1286,8 @@ class BossGame extends Phaser.Scene {
                 this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.75); // Special attack hypercharge
             }
         } else {
-            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 0.8);
-            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.25);
+            this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 0.6);
+            this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.2);
         }
         if (this.ruhhanHealth <= 0) {
             this.gameOver();
@@ -1931,7 +1936,7 @@ class BossGame extends Phaser.Scene {
                     }
                 });
             });
-        } else if (this.playerClass === 'saiyan') {} else if (this.playerClass === 'saiyan') {
+        } else if (this.playerClass === 'saiyan') {
             // Initialize enhanced Ki Blast Wave properties for saiyan
             const waveRadius = 300;
             const chargeTime = 800;
@@ -2414,7 +2419,7 @@ class BossGame extends Phaser.Scene {
             this.stunAttack();
         } else {
             // Saiyan's healing
-            const healAmount = this.hyperChargeActive ? 100 : 50;
+            const healAmount = this.hyperChargeActive ? 70 : 35;
             this.aaravHealth = Math.min(this.maxHealth, this.aaravHealth + healAmount);
             this.healing();
         }
@@ -2541,7 +2546,7 @@ class BossGame extends Phaser.Scene {
             this.events.off('update', updateIconPosition);
         });
         // Create healing animation with numbers
-        const healAmount = this.hyperChargeActive ? '+100' : '+50';
+        const healAmount = this.hyperChargeActive ? '+70' : '+35';
         const healText = this.add.text(this.aarav.x, this.aarav.y - 40, healAmount, {
             fontSize: '32px',
             fill: '#00ff00',
@@ -2729,46 +2734,6 @@ class BossGame extends Phaser.Scene {
             this.scene.stop('BossGame');
             // Start the start screen
             this.scene.start('StartScreen');
-        });
-    }
-    createHealthBar(x, y, width, height, color) {
-        const bg = this.add.rectangle(x, y, width, height, 0x000000, 0.7);
-        const frame = this.add.rectangle(x, y, width, height, 0xffffff, 1).setStrokeStyle(2, 0xffffff);
-        const bar = this.add.rectangle(x, y, width, height, color);
-        bg.setOrigin(0, 0);
-        frame.setOrigin(0, 0);
-        bar.setOrigin(0, 0);
-        return { bg, frame, bar };
-    }
-    createPlatforms() {
-        this.platforms = this.physics.add.staticGroup();
-        this.movingPlatforms = this.physics.add.group();
-        this.destructiblePlatforms = this.physics.add.staticGroup();
-        this.bouncePads = this.physics.add.staticGroup();
-
-        // Create static platforms
-        const staticPositions = [
-            { x: 400, y: 980, scaleX: 3, scaleY: 0.5 },
-            { x: 1200, y: 980, scaleX: 3, scaleY: 0.5 },
-            { x: 300, y: 650, scaleX: 1.5, scaleY: 0.3 },
-            { x: 900, y: 600, scaleX: 1.5, scaleY: 0.3 },
-            { x: 1500, y: 650, scaleX: 1.5, scaleY: 0.3 },
-        ];
-        staticPositions.forEach(pos => {
-            this.platforms.create(pos.x, pos.y, 'platform').setScale(pos.scaleX, pos.scaleY).refreshBody();
-        });
-
-        // Create bounce pads
-        const bouncePositions = [
-            { x: 150, y: 900 },
-            { x: 750, y: 900 },
-            { x: 1450, y: 900 },
-            { x: 300, y: 600 },
-            { x: 1100, y: 600 },
-        ];
-        bouncePositions.forEach(pos => {
-            const bounce = this.add.rectangle(pos.x, pos.y, 80, 20, 0xffff00);
-            this.bouncePads.add(bounce);
         });
     }
 }
