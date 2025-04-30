@@ -73,11 +73,6 @@ class ClassSelection extends Phaser.Scene {
             this.progress = JSON.parse(savedProgress);
         }
     }
-    constructor() {
-        super({
-            key: 'ClassSelection'
-        });
-    }
     create() {
         // Title
         this.add.text(800, 150, 'Choose Your Class', {
@@ -258,7 +253,7 @@ class BossGame extends Phaser.Scene {
             this.aaravHealth = 250; // Reduced Saiyan health
         }
         this.maxHealth = this.aaravHealth;
-        this.ruhhanHealth = 1500; // Buffed boss health
+        this.ruhaanHealth = 1500; // Buffed boss health
         this.lastShot = 0;
         this.lastBossAttack = 0;
         this.specialAttackCharge = 0; // Counter for special attack
@@ -685,7 +680,7 @@ class BossGame extends Phaser.Scene {
 
         // Update health bars and charge bars
         this.aaravHealthBar.width = (this.aaravHealth / this.maxHealth) * 400;
-        this.ruhhanHealthBar.width = (this.ruhhanHealth / 1500) * 400;
+        this.ruhhanHealthBar.width = (this.ruhaanHealth / 1500) * 400;
         this.chargeBarFill.width = (this.specialAttackCharge / 10) * 400;
         this.hyperChargeFill.width = (this.hyperChargeAmount / 10) * 400;
         // Handle hypercharge activation
@@ -694,7 +689,7 @@ class BossGame extends Phaser.Scene {
         }
 
         // Check for game over
-        if (this.aaravHealth <= 0 || this.ruhhanHealth <= 0) {
+        if (this.aaravHealth <= 0 || this.ruhaanHealth <= 0) {
             this.gameOver();
         }
     }
@@ -1277,7 +1272,7 @@ class BossGame extends Phaser.Scene {
         if (this.ruhaan.vulnerabilityMultiplier) {
             damage *= this.ruhaan.vulnerabilityMultiplier;
         }
-        this.ruhhanHealth -= damage;
+        this.ruhaanHealth -= damage;
 
         // Reset vulnerability multiplier when stun ends
         if (this.ruhaan.isStunned && !this.vulnerabilityResetTimer) {
@@ -1325,7 +1320,7 @@ class BossGame extends Phaser.Scene {
             this.specialAttackCharge = Math.min(10, this.specialAttackCharge + 0.6);
             this.hyperChargeAmount = Math.min(10, this.hyperChargeAmount + 0.2);
         }
-        if (this.ruhhanHealth <= 0) {
+        if (this.ruhaanHealth <= 0) {
             this.gameOver();
         }
     }
@@ -1746,7 +1741,7 @@ class BossGame extends Phaser.Scene {
                     // Apply damage with spell weaving multiplier
                     if (Phaser.Geom.Rectangle.Overlaps(strikeBounds, this.ruhaan.getBounds())) {
                         const damage = 30 * this.spellWeavingMultiplier;
-                        this.ruhhanHealth -= damage;
+                        this.ruhaanHealth -= damage;
 
                         // Stun the boss temporarily
                         if (!this.ruhaan.isStunned) {
@@ -1844,8 +1839,8 @@ class BossGame extends Phaser.Scene {
 
                 // Damage boss if in strike area
                 if (Phaser.Geom.Rectangle.Overlaps(hitArea, this.ruhaan.getBounds())) {
-                    const damage = this.hyperChargeActive ? 45 : 30;
-                    this.ruhhanHealth -= damage;
+                    const damage = this.hyperChargeActive ? 120 : 80;
+                    this.ruhaanHealth -= damage;
 
                     // Damage text
                     const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${damage}`, {
@@ -1868,12 +1863,7 @@ class BossGame extends Phaser.Scene {
                         const damage = this.hyperChargeActive ? 75 : 50;
                         minion.health -= damage;
 
-                        // Update minion health bar
-                        if (minion.updateHealthBar) {
-                            minion.updateHealthBar();
-                        }
-
-                        // Damage text for minion
+                        // Visual feedback for minion damage
                         const damageText = this.add.text(minion.x, minion.y - 30, `-${damage}`, {
                             fontSize: '24px',
                             fill: '#00ffff'
@@ -1886,6 +1876,11 @@ class BossGame extends Phaser.Scene {
                             duration: 500,
                             onComplete: () => damageText.destroy()
                         });
+
+                        // Update minion health bar
+                        if (minion.updateHealthBar) {
+                            minion.updateHealthBar();
+                        }
                     }
                 });
             });
@@ -1906,7 +1901,7 @@ class BossGame extends Phaser.Scene {
                     axe.hitEnemies.add(boss);
                     const damage = this.hyperChargeActive ? 250 : 175; // Increased damage
 
-                    this.ruhhanHealth -= damage;
+                    this.ruhaanHealth -= damage;
 
                     // Visual feedback for damage
                     const damageText = this.add.text(boss.x, boss.y - 50, `-${damage}!`, {
@@ -2009,7 +2004,7 @@ class BossGame extends Phaser.Scene {
                 // Damage boss if in range
                 if (Phaser.Geom.Circle.Contains(waveBounds, this.ruhaan.x, this.ruhaan.y)) {
                     const damage = this.hyperChargeActive ? 120 : 80;
-                    this.ruhhanHealth -= damage;
+                    this.ruhaanHealth -= damage;
 
                     // Visual feedback
                     this.showDamageNumber(this.ruhaan.x, this.ruhaan.y, damage, '#ffff00');
@@ -2034,80 +2029,6 @@ class BossGame extends Phaser.Scene {
                             minion.updateHealthBar();
                         }
                     }
-                });
-            });
-            this.isPerformingSpecial = true;
-
-            // Create charging effect
-            const chargeCircle = this.add.circle(this.aarav.x, this.aarav.y, 30, this.hyperChargeActive ? 0x800080 : 0x00ffff, 0.5);
-            this.tweens.add({
-                targets: chargeCircle,
-                scale: 2,
-                alpha: 0.8,
-                duration: chargeTime,
-                yoyo: true,
-                repeat: 0,
-                onComplete: () => chargeCircle.destroy()
-            });
-            // After charge time, fire the beam
-            this.time.delayedCall(chargeTime, () => {
-                // Create main beam
-                const beam = this.add.rectangle(this.aarav.x, this.aarav.y, beamLength, beamWidth, this.hyperChargeActive ? 0x800080 : 0x00ffff);
-                this.bullets.add(beam);
-                beam.isSpecialBeam = true;
-                beam.body.setAllowGravity(false);
-
-                // Add minion collision for beam
-                this.physics.add.overlap(beam, this.minions, (beam, minion) => {
-                    const damage = this.hyperChargeActive ? 75 : 50;
-                    minion.health -= damage;
-
-                    // Visual feedback for minion damage
-                    const damageText = this.add.text(minion.x, minion.y - 30, `-${damage}`, {
-                        fontSize: '24px',
-                        fill: this.hyperChargeActive ? '#800080' : '#00ffff'
-                    }).setOrigin(0.5);
-
-                    this.tweens.add({
-                        targets: damageText,
-                        y: damageText.y - 50,
-                        alpha: 0,
-                        duration: 500,
-                        onComplete: () => damageText.destroy()
-                    });
-
-                    // Update minion health bar
-                    if (minion.updateHealthBar) {
-                        minion.updateHealthBar();
-                    }
-                }, null, this);
-
-                // Set beam direction based on player facing
-                const direction = this.facingRight ? 1 : -1;
-                beam.body.setVelocityX(1000 * direction);
-                // Add beam particles
-                for (let i = 0; i < 20; i++) {
-                    const particle = this.add.circle(
-                        this.aarav.x + (direction * Phaser.Math.Between(0, beamLength / 2)),
-                        this.aarav.y + Phaser.Math.Between(-beamWidth / 2, beamWidth / 2),
-                        Phaser.Math.Between(5, 10),
-                        this.hyperChargeActive ? 0x800080 : 0x00ffff
-                    );
-                    this.tweens.add({
-                        targets: particle,
-                        x: particle.x + (direction * Phaser.Math.Between(100, 200)),
-                        alpha: 0,
-                        scale: 0.5,
-                        duration: 500,
-                        onComplete: () => particle.destroy()
-                    });
-                }
-                // Destroy beam after 1 second
-                this.time.delayedCall(1000, () => {
-                    if (beam.active) {
-                        beam.destroy();
-                    }
-                    this.isPerformingSpecial = false;
                 });
             });
         }
@@ -2237,7 +2158,8 @@ class BossGame extends Phaser.Scene {
             this.physics.add.overlap(this.ruhaan, beam, (ruhaan, beam) => {
                 beam.destroy();
                 const damage = this.hyperChargeActive ? 150 : 100; // 50% more damage when hypercharged
-                this.ruhhanHealth -= damage;
+                this.ruhaanHealth -= damage;
+
                 // Visual feedback for big damage
                 const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${damage}!`, {
                     fontSize: '32px',
@@ -2251,10 +2173,6 @@ class BossGame extends Phaser.Scene {
                     duration: 800,
                     onComplete: () => damageText.destroy()
                 });
-
-                if (this.ruhhanHealth <= 0) {
-                    this.gameOver();
-                }
             }, null, this);
             // Destroy beam after 1 second
             this.time.delayedCall(1000, () => {
@@ -2338,8 +2256,9 @@ class BossGame extends Phaser.Scene {
                 // Damage boss if in range
                 if (Phaser.Geom.Circle.Contains(explosionBounds, this.ruhaan.x, this.ruhaan.y)) {
                     const runeDamage = 40 * this.spellWeavingMultiplier;
-                    this.ruhhanHealth -= runeDamage;
+                    this.ruhaanHealth -= runeDamage;
 
+                    // Visual feedback for damage
                     const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${Math.floor(runeDamage)}`, {
                         fontSize: '24px',
                         fill: '#ff00ff'
@@ -2467,7 +2386,7 @@ class BossGame extends Phaser.Scene {
 
             // Deal initial stun damage
             const stunDamage = this.hyperChargeActive ? 75 : 50;
-            this.ruhhanHealth -= stunDamage;
+            this.ruhaanHealth -= stunDamage;
 
             // Show damage number
             const damageText = this.add.text(this.ruhaan.x, this.ruhaan.y - 50, `-${stunDamage}`, {
@@ -2655,6 +2574,8 @@ class BossGame extends Phaser.Scene {
         });
         // Purple aura around player
         const aura = this.add.circle(this.aarav.x, this.aarav.y, 40, 0x800080, 0.3);
+
+        // Pulse animation
         this.tweens.add({
             targets: aura,
             alpha: 0.6,
@@ -2701,7 +2622,7 @@ class BossGame extends Phaser.Scene {
     }
     gameOver() {
         // Award XP and save progress
-        if (this.ruhhanHealth <= 0) {
+        if (this.ruhaanHealth <= 0) {
             // Award XP for winning
             const xpGained = 50;
             this.classProgress.xp += xpGained;
@@ -2791,7 +2712,7 @@ class BossGame extends Phaser.Scene {
         restartButton.on('pointerdown', () => {
             // Reset all game variables
             this.aaravHealth = 150;
-            this.ruhhanHealth = 1000;
+            this.ruhaanHealth = 1000;
             this.specialAttackCharge = 0;
             this.hyperChargeAmount = 0;
             this.hyperChargeActive = false;
