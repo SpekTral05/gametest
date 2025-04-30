@@ -80,7 +80,7 @@ class ClassSelection extends Phaser.Scene {
             fill: '#fff'
         }).setOrigin(0.5);
         // Saiyan class button with updated abilities
-        const saiyanButton = this.add.text(400, 400, `Saiyan (Level ${this.progress.saiyan.level})\n\nHP: ${450 + (this.progress.saiyan.level - 1) * 25}\nSpeed: ${100 + (this.progress.saiyan.level - 1) * 2}%\nQ: Ki Blast Wave\nE: Power Surge\nPassive: Ki Charge\nXP: ${this.progress.saiyan.xp}/${this.progress.saiyan.nextLevelXp}`, {
+        const saiyanButton = this.add.text(400, 550, `Saiyan (Level ${this.progress.saiyan.level})\n\nHP: ${450 + (this.progress.saiyan.level - 1) * 25}\nSpeed: ${100 + (this.progress.saiyan.level - 1) * 2}%\nQ: Ki Blast Wave\nE: Power Surge\nPassive: Ki Charge\nXP: ${this.progress.saiyan.xp}/${this.progress.saiyan.nextLevelXp}`, {
                 fontSize: '24px',
                 fill: '#fff',
                 align: 'center'
